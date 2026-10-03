@@ -407,6 +407,16 @@ class CobolPythonAdapter(LanguageAdapter):
         finally:
             shutil.rmtree(run_dir, ignore_errors=True)
 
+    def scenarios(self) -> list[tuple[str, str, str]]:
+        """`<root>/scenarios/<PROGRAM>-<name>.txt`: realistic whole-program input files (stdin)."""
+        out = []
+        for f in sorted((self.root / "scenarios").glob("*.txt")):
+            module, _, name = f.stem.partition("-")
+            module = module.upper()
+            if module in self.infos and self.infos[module].kind == "program":
+                out.append((name or f.stem, module, f.read_text()))
+        return out
+
     def describe_mismatch(self, module: str, stdin: str, expected: str, actual: str) -> str:
         """For subprograms: per CALL, which parameter fields differ (expected vs actual)."""
         lay = self.layout(module)

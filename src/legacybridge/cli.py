@@ -212,16 +212,22 @@ def migrate(
 
     counts = asyncio.run(go())
     console.print(_summary_table(db))
+    scenarios_ok = True
     if out is not None:
         from .agents.integrator import integrate
         res = asyncio.run(integrate(ad, db, settings, plan, out))
         console.print(f"Package written to [bold]{res.package_dir}[/]; report: [bold]{res.report_path}[/]")
+        for sr in res.scenarios:
+            mark = {True: "[green]IDENTICAL[/]", False: "[red]DIFFERS[/]", None: "[yellow]skipped[/]"}[sr.passed]
+            console.print(f"  scenario {sr.module}/{sr.name}: {mark}" + (f" ({sr.note})" if sr.note else ""))
+        scenarios_ok = res.scenarios_ok
+
     total = sum(counts.values())
     console.print(f"[bold]{counts.get('verified', 0)}/{total} units verified[/]"
                   + (f", {counts.get('blocked', 0)} blocked, {counts.get('dep_blocked', 0)} dep-blocked"
                      if counts.get("verified", 0) < total else ""))
     db.close()
-    if counts.get("verified", 0) < total:
+    if counts.get("verified", 0) < total or not scenarios_ok:
         raise typer.Exit(1)
 
 
@@ -264,6 +270,38 @@ def verify(
     console.print(t)
     db.close()
     if not ok:
+        raise typer.Exit(1)
+
+
+@app.command()
+def report(
+    path: Path = typer.Argument(..., exists=True, file_okay=False, help="Legacy source tree."),
+    out: Optional[Path] = typer.Option(None, "--out", help="Output dir (default: <state>/report)."),
+    rerun: bool = typer.Option(True, "--scenarios/--no-scenarios",
+                               help="Re-package and replay end-to-end scenarios (else reuse the last results)."),
+    adapter: str = ADAPTER_OPT,
+    state: Optional[Path] = STATE_OPT,
+) -> None:
+    """Write REPORT.md + report.json for the run in this state dir."""
+    from .agents.integrator import build_report, integrate, stored_scenarios, write_report
+
+    settings = _settings(True)
+    db = _open_db(settings, state, path)
+    ad = _make_adapter(adapter, path, settings, state)
+    plan, _ = run_analyze(ad, db)
+    out = out or _state_dir(settings, state) / "report"
+    if rerun:
+        res = asyncio.run(integrate(ad, db, settings, plan, out))
+        md, scen = res.report_path, res.scenarios
+    else:
+        pkg = db.get_meta("package_dir")
+        scen = stored_scenarios(db)
+        md, _ = write_report(build_report(ad, db, plan, scen, Path(pkg) if pkg else None), out)
+    db.close()
+    bad = [s for s in scen if s.passed is False]
+    console.print(f"Report: [bold]{md}[/]  scenarios: {sum(s.passed is True for s in scen)}/{len(scen)} identical"
+                  + (f", [red]{len(bad)} differ[/]" if bad else ""))
+    if bad:
         raise typer.Exit(1)
 
 

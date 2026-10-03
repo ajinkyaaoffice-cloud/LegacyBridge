@@ -129,3 +129,21 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
   Lessons are advisory text; they never influence verdicts.
 - With concurrency > 1, whether a lesson exists when a later unit starts depends on timing; runs
   with `-j 1` (and the eval) are fully deterministic offline.
+
+## Integration and report (Phase 7)
+
+- **Package layout**: flat package `<source dir>_py/` (e.g. `bank_demo_py`): `lbrt.py`, one module
+  per program, `harness/` with a stdin/stdout driver per subprogram (same protocol as the unit
+  tests), and `__main__.py` dispatching `python -m bank_demo_py PROGRAM < input`. Modules import
+  each other as top-level names (`import feecalc`), which is what they were verified with;
+  `__main__` puts the package dir on `sys.path`. Rewriting imports to relative form would mean
+  shipping code that differs from the verified bytes.
+- **Scenarios** live in `<source>/scenarios/PROGRAM-name.txt` (stdin of a main program). They are
+  realistic batch files mixing normal and error records. They are NOT used for unit tests or
+  prompts. They are an end-to-end check of the assembled package against the original, with the
+  same deterministic comparison as the verifier. A scenario differing makes `migrate --out` and
+  `report` exit 1.
+- Scenarios run only for programs with accepted code. Programs in BLOCKED units are skipped and
+  marked as such. Code accepted ungated (eval baseline A) is still diffed, with a note.
+- `report` re-packages and replays scenarios by default (cheap, deterministic). Pass
+  `--no-scenarios` to reuse the last results stored in `run_meta`.
