@@ -24,11 +24,15 @@ GOLDEN = """[          0.00  ][             0.00][           0.00][  0.000][  0]
 def test_edit_matches_gnucobol(row):
     expected = GOLDEN.splitlines()[row][1:-1].split("][")
     got = [lbrt.edit(Dec(VALUES[row]), p) for p in PICS]
-    # Known divergence: GnuCOBOL prints '+000' for 1000 -> '+ZZ9' (overflow into a fixed leading
-    # '+' picture skips zero suppression). lbrt prints '+  0'. Documented in ASSUMPTIONS.md.
-    if VALUES[row] == "1000":
-        got[PICS.index("+ZZ9")] = expected[PICS.index("+ZZ9")]
     assert got == expected
+
+
+def test_edit_truncation_with_leading_sign():
+    # GnuCOBOL: nonzero digit just above the kept window + fixed leading sign -> no zero suppression
+    assert lbrt.edit(Dec("1004914.97"), "-ZZZ,ZZ9.99") == " 004,914.97"
+    assert lbrt.edit(Dec("1000"), "+ZZ9") == "+000"
+    assert lbrt.edit(Dec("1000"), "ZZ9") == "  0"
+    assert lbrt.edit(Dec("-1000000"), "+ZZ9") == "+  0"
 
 
 def test_edit_date_insertion():

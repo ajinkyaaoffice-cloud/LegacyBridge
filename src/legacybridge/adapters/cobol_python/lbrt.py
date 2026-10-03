@@ -197,7 +197,9 @@ def edit(value: object, picture: str) -> str:
 
     out: list[str] = []
     di = 0
-    significant = False
+    # GnuCOBOL quirk: with a fixed leading sign, a nonzero digit just above the kept window
+    # (high-order truncation) disables zero suppression: 1000 -> '+ZZ9' gives '+000'.
+    significant = bool(lead_sign) and int(abs(v) // (Decimal(10) ** n_int)) % 10 != 0
     check_protect = "*" in pic
     float_pos = -1
     for idx, (ch, kind) in enumerate(zip(pic, kinds)):

@@ -37,7 +37,7 @@ class CobcRunner:
         self.work_dir = Path(work_dir)
         self.copy_dirs = copy_dirs
         self.version = cobc_version(cobc)
-        self._locks: dict[str, asyncio.Lock] = {}
+        self._locks: dict[tuple[int, str], asyncio.Lock] = {}
 
     def _key(self, sources: list[Path], driver: str | None, copybooks: list[Path]) -> str:
         h = hashlib.sha256(self.version.encode())
@@ -52,7 +52,7 @@ class CobcRunner:
         key = self._key(sources, driver, copybooks)
         out_dir = self.work_dir / "bin" / key
         exe = out_dir / "prog"
-        lock = self._locks.setdefault(key, asyncio.Lock())
+        lock = self._locks.setdefault((id(asyncio.get_running_loop()), key), asyncio.Lock())
         async with lock:
             if exe.exists():
                 return exe

@@ -57,10 +57,16 @@ class Sandbox:
 
     def __init__(self, cfg: SandboxCfg | None = None):
         self.cfg = cfg or SandboxCfg()
-        self._sem = asyncio.Semaphore(self.cfg.parallelism)
+        self._sems: dict[int, asyncio.Semaphore] = {}   # per event loop (asyncio primitives are loop-bound)
         self.seatbelt = bool(
             self.cfg.macos_seatbelt and sys.platform == "darwin" and shutil.which("sandbox-exec")
         )
+
+    def _sem(self) -> asyncio.Semaphore:
+        loop_id = id(asyncio.get_running_loop())
+        if loop_id not in self._sems:
+            self._sems = {loop_id: asyncio.Semaphore(self.cfg.parallelism)}  # drop semaphores of dead loops
+        return self._sems[loop_id]
 
     def _limits(self, cpu: int | None = None) -> None:  # runs in the child between fork and exec
         os.setsid()
@@ -102,7 +108,7 @@ class Sandbox:
         timeout = timeout or self.cfg.timeout_s
         cap = self.cfg.max_output_bytes
 
-        async with self._sem:
+        async with self._sem():
             start = time.perf_counter()
             proc = await asyncio.create_subprocess_exec(
                 *cmd,

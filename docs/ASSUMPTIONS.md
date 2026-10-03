@@ -41,8 +41,10 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
   than the record are split into two records and one character is lost (!), so the oracle
   rejects test inputs whose lines exceed the record length.
 - `IS NUMERIC` on SIGN LEADING SEPARATE requires an explicit '+' or '-'.
-- Known lbrt divergence: 1000 MOVEd to `+ZZ9` gives `+000` in GnuCOBOL but `+  0` in lbrt
-  (overflow into a fixed leading '+' picture). Not used by the corpus; the verifier would catch it.
+- Edited MOVE with high-order truncation into a picture with a fixed leading sign: when the digit
+  just above the kept window is nonzero, GnuCOBOL 3.2 does not zero-suppress (1000 -> `+ZZ9` is
+  `+000`; 1004914.97 -> `-ZZZ,ZZ9.99` is ` 004,914.97`). Inferred from captured outputs (LOANSCHD
+  hidden test hit it); `lbrt.edit` replicates it.
 
 ## Environment quirk
 - On macOS, files under ~/Desktop may get the `hidden` flag (iCloud). Python 3.13 ignores hidden
@@ -71,3 +73,27 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
   are reused by following records so transactions hit existing accounts.
 - `hidden` test cases (eval only) are generated with a different seed and never shown to the
   translator, verifier, repair loop or fuzzer.
+
+## Translation and repair (Phase 4)
+
+- A migration unit (SCC) is translated in ONE prompt so mutually recursive programs (ACCTVAL <->
+  LOANCHK) get consistent interfaces; the reply carries one ```python block per module headed
+  `# module: NAME`. A repair reply may omit unchanged modules (previous code is kept).
+- Attempt 1 = translator role; attempts 2.. = repair role; once `repair.escalate_after` attempts
+  have failed, the `repair_escalated` role (strongest tier) takes over. Every attempt, its code,
+  the lesson ids in its prompt and every per-test result are stored on the blackboard.
+- Dependencies of a unit are given to the model only as interfaces (signature + parameter
+  dictionary keys/PICs); their verified code is used at run time, never re-translated.
+- The translated code is checked statically (ast only: entry point, import allowlist, no
+  exec/eval/open/__import__) and then run only via the sandbox in an isolated interpreter
+  (`python -I -S -B`) from a content-addressed directory whose hash includes `lbrt.py`.
+- The Python harness is deliberately strict: a value a COBOL field could not hold (float, too many
+  digits/decimals, sign in an unsigned field, overlong string) prints as '!'*width, so forgotten
+  store semantics fail loudly instead of matching by luck.
+- Offline (MockProvider) translations are the hand-written `reference_py/` modules with a small
+  catalogue of realistic injected bugs (`mock_brain.MOCK_BUGS`): unpadded DISPLAY fields, STRING
+  clearing its target, ROUNDED vs truncation, FD record overlay. Translate injects them unless a
+  lesson with the bug's tag is in the prompt; the normal repair tier fixes all but those marked
+  `escalated`. This makes repair, escalation and lessons observable and testable without network.
+- `asyncio` primitives in the sandbox and compile cache are created per event loop, so one adapter
+  can be reused across `asyncio.run` calls (CLI, tests).

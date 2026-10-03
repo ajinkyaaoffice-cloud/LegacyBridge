@@ -94,6 +94,10 @@ class LanguageAdapter(ABC):
             raise ValueError("'stdin' must be a string")
         return case["stdin"]
 
+    def describe_mismatch(self, module: str, stdin: str, expected: str, actual: str) -> str:
+        """Optional field-level explanation of an output mismatch (for repair prompts)."""
+        return ""
+
     def testable(self, module: str) -> str | None:
         """None if the module can be differentially tested, else why not."""
         return None
