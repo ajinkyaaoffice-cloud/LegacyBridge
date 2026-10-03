@@ -15,9 +15,11 @@ from .adapters import get_adapter
 from .agents.analyzer import analyze as run_analyze
 from .agents.analyzer import summarize_all
 from .config import Settings, load_settings
-from .db import Blackboard
+from .db import Blackboard, Status
 from .llm.client import LLMClient
+from .pipeline import Pipeline, PipelineOptions
 from .sandbox import Sandbox
+from .scheduler import Scheduler
 
 app = typer.Typer(add_completion=False, no_args_is_help=True,
                   help="LegacyBridge: verified COBOL -> Python migration with LLM agents.")
@@ -110,6 +112,150 @@ def analyze(
             if row.get("summary"):
                 console.print(f"\n[bold]{row['name']}[/]\n{row['summary']}")
     db.close()
+
+
+STATUS_STYLE = {"verified": "green", "blocked": "red", "dep_blocked": "red", "pending": "dim"}
+
+
+async def _tail_events(db: Blackboard, stop: asyncio.Event, quiet: bool) -> None:
+    """Print progress from the events table while the scheduler runs."""
+    last = db.query("SELECT COALESCE(MAX(id), 0) m FROM events")[0]["m"]
+    while True:
+        for ev in db.events_after(last):
+            last = ev["id"]
+            if quiet:
+                continue
+            p, unit, typ = ev, ev.get("unit") or "", ev["type"]
+            if typ == "status" and p.get("status") in ("translating", "repairing", "fuzzing", "verified",
+                                                         "blocked", "dep_blocked"):
+                style = STATUS_STYLE.get(p["status"], "cyan")
+                extra = f" (attempt {p['attempts']})" if p.get("attempts") and p["status"] != "verified" else ""
+                console.print(f"[{style}]{unit:<18} {p['status']}{extra}[/]")
+            elif typ == "verify":
+                mark = "[green]pass[/]" if p.get("ok") else "[yellow]fail[/]"
+                console.print(f"{unit:<18} verify {p.get('passed')}/{p.get('total')} {mark} "
+                              f"[dim]{p.get('role')} {p.get('model')}[/]")
+            elif typ == "oracle":
+                console.print(f"[dim]{unit:<18} oracle {p.get('module')}: {p.get('total')} golden tests[/]")
+            elif typ in ("fuzz_round", "fuzz_bug", "lesson_added", "fallback", "unit_crashed", "llm_failed"):
+                console.print(f"[magenta]{unit:<18} {typ}[/] [dim]{json.dumps(p)[:160]}[/]")
+        if stop.is_set():
+            return
+        await asyncio.sleep(0.3)
+
+
+def _summary_table(db: Blackboard) -> Table:
+    data_only = 0
+    t = Table(title="Migration units")
+    for col in ("unit", "status", "attempts", "tests", "fuzz", "model", "note"):
+        t.add_column(col, overflow="fold")
+    for u in db.units():
+        members = [m for m in u["members"] if (db.module(m) or {}).get("kind") != "copybook"]
+        if not members:
+            data_only += 1
+            continue
+        tests = sum(len(db.test_cases(m, ["llm", "property", "random", "fuzz_llm", "fuzz_mutation"])) for m in members)
+        style = STATUS_STYLE.get(u["status"], "cyan")
+        t.add_row(u["name"], f"[{style}]{u['status']}[/]", str(u["attempts"] or ""), str(tests or ""),
+                  f"{u['fuzz_rounds_clean']} ok / {u['fuzz_bugs_found']} bugs",
+                  u.get("model_used") or "", (u.get("error") or "")[:80])
+    if data_only:
+        t.caption = f"+ {data_only} data-only units (copybooks), nothing to translate"
+    return t
+
+
+@app.command()
+def migrate(
+    path: Path = typer.Argument(..., exists=True, file_okay=False, help="Legacy source tree."),
+    out: Optional[Path] = typer.Option(None, "--out", help="Write the migrated package + report here."),
+    concurrency: Optional[int] = typer.Option(None, "--concurrency", "-j", help="Units migrated in parallel."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Offline: MockProvider instead of real APIs."),
+    resume: bool = typer.Option(False, "--resume", help="Continue the previous run in this state dir."),
+    retry_blocked: bool = typer.Option(False, "--retry-blocked", help="With --resume: retry BLOCKED units."),
+    no_fuzz: bool = typer.Option(False, "--no-fuzz", help="Skip adversarial fuzzing rounds."),
+    adapter: str = ADAPTER_OPT,
+    state: Optional[Path] = STATE_OPT,
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Only print the final summary."),
+) -> None:
+    """Migrate every unit (dependencies first) with differential verification against the original."""
+    settings = _settings(dry_run)
+    db = _open_db(settings, state, path, fresh=not resume)
+    ad = _make_adapter(adapter, path, settings, state)
+    plan, _ = run_analyze(ad, db)
+    ok, msg = ad.toolchain_status()
+    if not ok:
+        console.print(f"[red]{msg}[/]\nUnits cannot be verified without it; they will be BLOCKED.")
+    llm = _llm(settings, db, ad)
+    if not dry_run and not llm.chain("translator"):
+        console.print("[red]No API keys found for any configured provider.[/] Add keys to .env (see "
+                      ".env.example) or run with --dry-run.")
+        raise typer.Exit(2)
+    pipe = Pipeline(ad, db, llm, settings, plan, PipelineOptions(fuzz=not no_fuzz))
+
+    async def go() -> dict[str, int]:
+        stop = asyncio.Event()
+        tail = asyncio.create_task(_tail_events(db, stop, quiet))
+        try:
+            return await Scheduler(pipe, concurrency).run(retry_blocked=retry_blocked)
+        finally:
+            stop.set()
+            await tail
+
+    counts = asyncio.run(go())
+    console.print(_summary_table(db))
+    if out is not None:
+        from .agents.integrator import integrate
+        res = asyncio.run(integrate(ad, db, settings, plan, out))
+        console.print(f"Package written to [bold]{res.package_dir}[/]; report: [bold]{res.report_path}[/]")
+    total = sum(counts.values())
+    console.print(f"[bold]{counts.get('verified', 0)}/{total} units verified[/]"
+                  + (f", {counts.get('blocked', 0)} blocked, {counts.get('dep_blocked', 0)} dep-blocked"
+                     if counts.get("verified", 0) < total else ""))
+    db.close()
+    if counts.get("verified", 0) < total:
+        raise typer.Exit(1)
+
+
+@app.command()
+def verify(
+    path: Path = typer.Argument(..., exists=True, file_okay=False, help="Legacy source tree."),
+    adapter: str = ADAPTER_OPT,
+    state: Optional[Path] = STATE_OPT,
+    include_hidden: bool = typer.Option(False, "--hidden", help="Also run the held-out eval suite."),
+) -> None:
+    """Re-run every stored translation against all recorded golden tests (deterministic verdicts)."""
+    from .agents.verifier import verify_module
+
+    settings = _settings(True)
+    db = _open_db(settings, state, path)
+    ad = _make_adapter(adapter, path, settings, state)
+    ad.load(ad.discover())
+    code = {ad.target_name(m["name"]): m["python_code"] for m in db.modules() if m.get("python_code")}
+    if not code:
+        console.print("[yellow]No migrated modules in this state dir; run `legacybridge migrate` first.[/]")
+        raise typer.Exit(1)
+    origins = ["llm", "property", "random", "fuzz_llm", "fuzz_mutation"] + (["hidden"] if include_hidden else [])
+    t = Table(title="Verification")
+    for col in ("module", "tests", "passed", "verdict"):
+        t.add_column(col)
+
+    async def go() -> bool:
+        all_ok = True
+        for m in db.modules():
+            if not m.get("python_code"):
+                continue
+            rep = await verify_module(ad, m["name"], code, db.test_cases(m["name"], origins),
+                                      settings.pipeline.verifier.normalize)
+            all_ok &= rep.ok
+            t.add_row(m["name"], str(rep.total), str(rep.passed),
+                      "[green]PASS[/]" if rep.ok else f"[red]FAIL[/] {rep.static_error or ''}")
+        return all_ok
+
+    ok = asyncio.run(go())
+    console.print(t)
+    db.close()
+    if not ok:
+        raise typer.Exit(1)
 
 
 def main() -> None:  # pragma: no cover

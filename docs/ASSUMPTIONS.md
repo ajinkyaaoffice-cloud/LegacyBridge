@@ -97,3 +97,16 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
   `escalated`. This makes repair, escalation and lessons observable and testable without network.
 - `asyncio` primitives in the sandbox and compile cache are created per event loop, so one adapter
   can be reused across `asyncio.run` calls (CLI, tests).
+
+## Scheduling and resume (Phase 5)
+
+- `migrate` starts a fresh blackboard unless `--resume` is given (the compile cache in
+  `<state>/work` and the LLM disk cache are kept either way, so a fresh run is cheap).
+  `--resume` resets units that were in flight (oracle/ready/translating/verifying/repairing/
+  fuzzing) to PENDING and keeps VERIFIED units and all recorded golden tests; BLOCKED units are
+  retried only with `--retry-blocked`.
+- Oracle builds run eagerly for all pending units (they only need the ORIGINAL program), bounded by
+  `scheduler.oracle_concurrency`; translation waits until all dependencies are VERIFIED.
+- An exception inside one unit marks it BLOCKED ("internal error") and emits `unit_crashed`; the
+  run continues. A BLOCKED unit marks its transitive dependents DEP_BLOCKED.
+- `migrate` exits with status 1 if any unit is not VERIFIED (scriptable in CI).
