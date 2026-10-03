@@ -1,0 +1,47 @@
+# Pipeline behavior. CLI flags override where available.
+
+state_dir: .legacybridge          # SQLite blackboard + compile cache live here
+cache_dir: .lbcache               # on-disk LLM response cache
+
+scheduler:
+  concurrency: 4                  # max units migrating in parallel
+  oracle_concurrency: 4           # max oracle builds in parallel
+
+repair:
+  max_attempts: 4                 # translate + repairs per unit
+  escalate_after: 2               # failed attempts before switching to the 'repair_escalated' tier
+
+fuzzer:
+  enabled: true
+  rounds: 2                       # K clean rounds required for VERIFIED
+  llm_inputs_per_round: 8
+  mutation_inputs_per_round: 12   # deterministic literal-boundary / sign / overflow mutations
+
+lessons:
+  enabled: true
+  max_in_prompt: 5
+
+oracle:
+  llm_cases: 10                   # LLM-proposed test inputs per program
+  property_cases: 12              # boundary values derived from PIC clauses
+  random_cases: 12                # seeded random records
+  seed: 1337
+
+verifier:
+  normalize:
+    rstrip_lines: false           # exact match by default
+    ignore_trailing_blank_lines: false
+
+sandbox:
+  timeout_s: 10
+  cpu_seconds: 10
+  memory_mb: 512
+  max_output_bytes: 1000000
+  parallelism: 8                  # concurrent sandboxed processes
+  macos_seatbelt: true            # deny network via sandbox-exec when available
+
+context:
+  # Prompts are reduced (comments stripped, guide trimmed, deps -> signatures, source chunked)
+  # to fit min(model context, model TPM) minus the reserved output budget.
+  reserve_output_tokens: 3000
+  chars_per_token: 3.5

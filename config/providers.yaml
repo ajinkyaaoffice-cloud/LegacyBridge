@@ -1,0 +1,156 @@
+# Free hosted LLM providers. Limits checked against provider docs / reputable trackers on
+# 2026-10-03 and set CONSERVATIVELY (at or below the published free-tier numbers). Free tiers
+# change often: verify your own limits (AI Studio "Rate limit" page, Groq console "Limits",
+# OpenRouter account page, Mistral admin console) and edit here. Nothing in code hardcodes these.
+#
+# Model refs used in `tiers` are "<provider>/<alias>".
+# Limits: rpm/tpm = per minute, rpd/tpd = per day (UTC). Omit a key for "no limit known".
+
+defaults:
+  timeout_s: 120
+  temperature: 0.2
+  retries_per_model: 2          # retries on 429/5xx/timeout before falling back to next model
+  backoff_base_s: 2.0
+  backoff_max_s: 45.0
+  backoff_jitter: 0.3           # +-30% random jitter
+  max_wait_for_slot_s: 90       # if a model's bucket can't serve within this, fall back instead
+
+providers:
+  gemini:
+    api_key_env: GEMINI_API_KEY
+    enabled: true
+    # Google AI Studio free tier: no card. Pro models were removed from the free tier (2026-04).
+    models:
+      flash:
+        litellm_model: gemini/gemini-3.5-flash
+        rpm: 10
+        tpm: 250000
+        rpd: 250
+        context_tokens: 1000000
+        max_output_tokens: 8192
+        json_mode: true
+      flash-lite:
+        litellm_model: gemini/gemini-3.1-flash-lite
+        rpm: 15
+        tpm: 250000
+        rpd: 1000
+        context_tokens: 1000000
+        max_output_tokens: 8192
+        json_mode: true
+
+  groq:
+    api_key_env: GROQ_API_KEY
+    enabled: true
+    # Groq free plan (console.groq.com/docs/rate-limits). TPM is small (8K): big prompts are
+    # skipped for this provider by the context budgeter and fall through the chain.
+    models:
+      gpt-oss-120b:
+        litellm_model: groq/openai/gpt-oss-120b
+        rpm: 30
+        tpm: 8000
+        rpd: 1000
+        tpd: 200000
+        context_tokens: 131072
+        max_output_tokens: 4096
+        json_mode: true
+      gpt-oss-20b:
+        litellm_model: groq/openai/gpt-oss-20b
+        rpm: 30
+        tpm: 8000
+        rpd: 1000
+        tpd: 200000
+        context_tokens: 131072
+        max_output_tokens: 4096
+        json_mode: true
+      qwen3-27b:
+        litellm_model: groq/qwen/qwen3.8-27b
+        rpm: 30
+        tpm: 8000
+        rpd: 1000
+        tpd: 200000
+        context_tokens: 131072
+        max_output_tokens: 4096
+        json_mode: true
+
+  openrouter:
+    api_key_env: OPENROUTER_API_KEY
+    enabled: true
+    # ':free' models. 20 RPM shared; 50 requests/day across all :free models with a $0 balance.
+    shared_limits:
+      rpm: 20
+      rpd: 50
+    models:
+      qwen-27b-free:
+        litellm_model: openrouter/qwen/qwen3.8-27b:free
+        context_tokens: 262144
+        max_output_tokens: 8192
+        json_mode: false
+      nemotron-super-free:
+        litellm_model: openrouter/nvidia/nemotron-3-super-120b-a12b:free
+        context_tokens: 262144
+        max_output_tokens: 8192
+        json_mode: false
+
+  mistral:
+    api_key_env: MISTRAL_API_KEY
+    enabled: true
+    # "Experiment" plan: free, phone verification, ~1 request/second; exact numbers only in console.
+    shared_limits:
+      rpm: 30
+    models:
+      codestral:
+        litellm_model: mistral/codestral-latest
+        tpm: 400000
+        context_tokens: 256000
+        max_output_tokens: 8192
+        json_mode: true
+      small:
+        litellm_model: mistral/mistral-small-latest
+        tpm: 400000
+        context_tokens: 128000
+        max_output_tokens: 8192
+        json_mode: true
+
+  cerebras:
+    api_key_env: CEREBRAS_API_KEY
+    # Disabled: the always-free tier was replaced by a card-gated trial in 2026-07 (not "free").
+    enabled: false
+    models:
+      gpt-oss-120b:
+        litellm_model: cerebras/gpt-oss-120b
+        rpm: 5
+        tpm: 30000
+        context_tokens: 65536
+        max_output_tokens: 8192
+        json_mode: true
+
+# Ordered fallback chains. The client walks the chain on 429 / 5xx / timeout / quota exhaustion.
+tiers:
+  fast:
+    - groq/gpt-oss-20b
+    - gemini/flash-lite
+    - mistral/small
+    - openrouter/nemotron-super-free
+  strong:
+    - gemini/flash
+    - mistral/codestral
+    - groq/gpt-oss-120b
+    - openrouter/qwen-27b-free
+  # Used by the repair loop after `escalate_after` failed attempts (config/pipeline.yaml).
+  strongest:
+    - groq/gpt-oss-120b
+    - gemini/flash
+    - openrouter/nemotron-super-free
+    - mistral/codestral
+
+roles:
+  summarizer: fast
+  oracle: fast
+  translator: strong
+  repair: strong
+  repair_escalated: strongest
+  fuzzer: fast
+  reflector: fast
+
+mock:
+  latency_ms: 20     # simulated per-call latency for the MockProvider
