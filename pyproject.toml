@@ -34,6 +34,7 @@ legacybridge = ["dashboard/static/*", "adapters/cobol_python/*.md", "adapters/co
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src", "tests"]
 markers = [
   "cobc: requires GnuCOBOL (cobc) on PATH",
   "network: requires real API keys and network",

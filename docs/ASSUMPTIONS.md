@@ -31,3 +31,20 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
   automatically where unavailable. On Linux, run inside a container for network isolation.
 - Child environment is rebuilt from scratch (PATH/HOME/LANG only), so API keys never reach
   legacy or generated code.
+
+## GnuCOBOL semantics (verified empirically with cobc 3.2, see tests/test_lbrt.py)
+- `DISPLAY numeric-item` prints a sign whenever the field is signed and inserts '.' for implied
+  decimals: S9(7)V99 165.28 -> `+0000165.28`; 9(5) 3 -> `00003`. COMP/COMP-3 display the same way.
+- Storing truncates decimals and silently drops high-order digits unless ON SIZE ERROR is coded;
+  `ROUNDED` = round half away from zero (`ROUND_HALF_UP` in Python's decimal).
+- LINE SEQUENTIAL input: short/empty lines are space-padded, trailing CR stripped. Lines longer
+  than the record are split into two records and one character is lost (!), so the oracle
+  rejects test inputs whose lines exceed the record length.
+- `IS NUMERIC` on SIGN LEADING SEPARATE requires an explicit '+' or '-'.
+- Known lbrt divergence: 1000 MOVEd to `+ZZ9` gives `+000` in GnuCOBOL but `+  0` in lbrt
+  (overflow into a fixed leading '+' picture). Not used by the corpus; the verifier would catch it.
+
+## Environment quirk
+- On macOS, files under ~/Desktop may get the `hidden` flag (iCloud). Python 3.13 ignores hidden
+  `.pth` files, breaking editable installs. Fix: `chflags nohidden .venv/lib/python3.*/site-packages/*.pth`.
+  pytest is configured with `pythonpath = ["src", "tests"]` so tests don't depend on it.
