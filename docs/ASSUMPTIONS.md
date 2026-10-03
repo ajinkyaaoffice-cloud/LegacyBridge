@@ -110,3 +110,22 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
 - An exception inside one unit marks it BLOCKED ("internal error") and emits `unit_crashed`; the
   run continues. A BLOCKED unit marks its transitive dependents DEP_BLOCKED.
 - `migrate` exits with status 1 if any unit is not VERIFIED (scriptable in CI).
+
+## Fuzzing and lessons (Phase 6)
+
+- A unit is VERIFIED only after `fuzzer.rounds` CONSECUTIVE rounds without a divergence. Each round
+  = LLM inputs aimed at the current translation (the code is in the prompt) + deterministic
+  mutations of existing inputs. All new inputs are first run on the ORIGINAL program and stored as
+  golden tests (origins `fuzz_llm` / `fuzz_mutation`), so later repairs must keep passing them.
+- A counterexample starts a repair loop with a fresh `repair.max_attempts` budget, verified against
+  ALL tests; the escalation counter continues from the unit's attempt number (a bug that survived
+  the oracle goes to the stronger tier sooner). Total rounds are capped at rounds + 2*max_attempts.
+- Input generation links numeric comparison literals to their fields (`IF FP-BALANCE < 1500.00`,
+  also through `MOVE src TO dst` copies) and tests lit-ulp / lit / lit+ulp first. Measured on the
+  corpus: boundary mistakes like `<=` vs `<` at a threshold went from undetected to detected.
+- Lessons: after a unit passes only thanks to repairs, the reflector compares the last failing and
+  the passing attempt and stores 1-2 general rules tagged with the adapter's feature tags. Prompts
+  include the `lessons.max_in_prompt` lessons with the best feature overlap (ties: most used, newest).
+  Lessons are advisory text; they never influence verdicts.
+- With concurrency > 1, whether a lesson exists when a later unit starts depends on timing; runs
+  with `-j 1` (and the eval) are fully deterministic offline.

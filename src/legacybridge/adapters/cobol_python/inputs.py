@@ -28,6 +28,14 @@ _NUM_LIT = re.compile(r"(?<![\w\-.])[+-]?\d+(?:\.\d+)?(?![\w\-])")
 _STR_LIT = re.compile(r"'([^']{1,3})'")
 _CMP_RE = re.compile(r"\b([A-Z][A-Z0-9-]*)\s+(?:NOT\s+)?(?:=|EQUAL(?:\s+TO)?)\s+'([^']*)'", re.I)
 _EVAL_RE = re.compile(r"\bEVALUATE\s+([A-Z][A-Z0-9-]*)\s*\n(.*?)END-EVALUATE", re.I | re.S)
+_NUM_CMP_RE = re.compile(
+    r"\b([A-Z][A-Z0-9-]*)(?:\([^)]*\))?\s+(?:IS\s+)?(?:NOT\s+)?"
+    r"(?:<=|>=|<|>|=|LESS\s+THAN(?:\s+OR\s+EQUAL(?:\s+TO)?)?|GREATER\s+THAN(?:\s+OR\s+EQUAL(?:\s+TO)?)?|EQUAL(?:\s+TO)?)"
+    r"\s+([+-]?\d+(?:\.\d+)?)(?![\w\-])", re.I)
+_MOVE_RE = re.compile(r"\bMOVE[ \t]+([A-Z][A-Z0-9-]*)[ \t]+TO[ \t]+([A-Z][A-Z0-9-]*(?:[ \t]+[A-Z][A-Z0-9-]*)*)[ \t]*$",
+                      re.I | re.M)
+_NOT_FIELDS = {"ROUNDED", "GIVING", "REMAINDER", "TO", "FROM", "BY", "INTO", "UNTIL", "VARYING", "WHEN", "SPACES",
+               "ZEROS", "ZERO", "SPACE", "OR", "AND", "NOT"}
 
 
 @dataclass
@@ -35,6 +43,7 @@ class Literals:
     nums: list[Decimal] = field(default_factory=list)
     strs: list[str] = field(default_factory=list)
     by_field: dict[str, list[str]] = field(default_factory=dict)   # FIELD -> literals compared to it
+    num_by_field: dict[str, list[Decimal]] = field(default_factory=dict)  # FIELD -> numeric thresholds
 
 
 def harvest_literals(source: str) -> Literals:
@@ -53,7 +62,19 @@ def harvest_literals(source: str) -> Literals:
         body = body.split("EVALUATE", 1)[0]  # don't descend into nested EVALUATEs
         for lit in re.findall(r"WHEN\s+'([^']*)'", body, re.I):
             by_field.setdefault(name, set()).add(lit)
-    return Literals(nums, strs, {k: sorted(v) for k, v in by_field.items()})
+    num_by_field: dict[str, set[Decimal]] = {}
+    for m in _NUM_CMP_RE.finditer(text):
+        if m.group(1).upper() not in _NOT_FIELDS:
+            num_by_field.setdefault(m.group(1).upper(), set()).add(Decimal(m.group(2)))
+    # thresholds on a copy (MOVE IN-X TO WS-X ... IF WS-X > 5) also apply to the source field
+    for m in _MOVE_RE.finditer(text):
+        src = m.group(1).upper()
+        for dst in m.group(2).upper().split():
+            for table in (by_field, num_by_field):
+                if dst in table and src not in _NOT_FIELDS:
+                    table.setdefault(src, set()).update(table[dst])
+    return Literals(nums, strs, {k: sorted(v) for k, v in by_field.items()},
+                    {k: sorted(v) for k, v in num_by_field.items()})
 
 
 def _is_date(f: IOField) -> bool:
@@ -89,6 +110,7 @@ class InputGenerator:
     def __init__(self, layout: Layout, literals: Literals, rng: random.Random):
         self.layout = layout
         self.nums, self.strs, self.by_field = literals.nums, literals.strs, literals.by_field
+        self.num_by_field = literals.num_by_field
         self.rng = rng
         self.id_pool: dict[int, list[str]] = {}
         self.case_ids: list[str] = []      # IDs introduced by leading records of the current case
@@ -154,7 +176,8 @@ class InputGenerator:
         if _is_date(f):
             return list(SPECIAL_DATES)
         u = _ulp(f)
-        cand = [Decimal(0), u, _max(f), _max(f) - u, Decimal(10) ** (f.f.int_digits // 2)]
+        cand = self.thresholds(f)            # this field's own comparison thresholds first
+        cand += [Decimal(0), u, _max(f), _max(f) - u, Decimal(10) ** (f.f.int_digits // 2)]
         for lit in self.nums:
             cand += [lit, lit - u, lit + u]
         if f.f.signed:
@@ -164,6 +187,16 @@ class InputGenerator:
             if _fits(f, c) and c not in seen:
                 seen.add(c)
                 out.append(c)
+        return out
+
+    def thresholds(self, f: IOField) -> list[Decimal]:
+        """lit-ulp, lit, lit+ulp for every literal the program compares this field against."""
+        if not f.numeric:
+            return []
+        u = _ulp(f)
+        out = []
+        for lit in self.num_by_field.get(f.name, []):
+            out += [c for c in (lit - u, lit, lit + u) if _fits(f, c) and c not in out]
         return out
 
     def random_value(self, f: IOField, rec: Record) -> Any:
@@ -217,6 +250,9 @@ def property_cases(gen: InputGenerator, n: int) -> list[str]:
     """One-factor-at-a-time boundary cases spread over all (field, boundary) pairs."""
     pairs = [(r, f, b) for r in gen.layout.records for f in r.fields for b in gen.boundaries(f, r)]
     gen.rng.shuffle(pairs)
+    hot = [(r, f, b) for r in gen.layout.records for f in r.fields for b in gen.thresholds(f)]
+    gen.rng.shuffle(hot)
+    pairs = hot + [x for x in pairs if x not in hot]       # comparison thresholds get covered first
     cases, k = [], 0
     for _ in range(n):
         lines = []
@@ -280,7 +316,10 @@ def mutation_cases(gen: InputGenerator, seeds: list[str], n: int) -> list[str]:
                 j = rng.randrange(len(rec.fields))
                 f = rec.fields[j]
                 choices = gen.boundaries(f, rec)
-                if f.numeric and rng.random() < 0.3:
+                hot = gen.thresholds(f)
+                if hot and rng.random() < 0.5:
+                    choices = hot
+                elif f.numeric and rng.random() < 0.3:
                     cur = f.parse(texts[j])
                     if isinstance(cur, Decimal):
                         choices = [c for c in (-cur, cur + _ulp(f), cur - _ulp(f), cur * 10) if _fits(f, c)] or choices

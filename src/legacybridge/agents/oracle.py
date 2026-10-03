@@ -54,7 +54,7 @@ def module_rng(seed: int, module: str, salt: str = "") -> random.Random:
 
 async def llm_inputs(adapter: LanguageAdapter, llm, module: str, n: int, *, unit: str | None,
                      summary: str | None, extra: str = "", role: str = "oracle",
-                     task: str = "oracle") -> tuple[list[GeneratedInput], list[str]]:
+                     task: str = "oracle", meta: dict[str, Any] | None = None) -> tuple[list[GeneratedInput], list[str]]:
     """Ask the LLM for test cases; returns (valid inputs, rejection reasons)."""
     p = Prompt(ORACLE_SYSTEM.format(lang=adapter.source_language),
                instruction=ORACLE_INSTRUCTION.format(n=n, name=module) + (("\n" + extra) if extra else ""))
@@ -64,7 +64,7 @@ async def llm_inputs(adapter: LanguageAdapter, llm, module: str, n: int, *, unit
     p.add("Tricky semantics present", ", ".join(adapter.features(module)), priority=50)
     ctx = adapter.module_context(module)
     p.add("Source", ctx, priority=60, compact=ctx[:6000] + "\n...(truncated)")
-    res = await llm.complete(role, p, LLMCases, meta={"task": task, "module": module, "n": n}, unit=unit)
+    res = await llm.complete(role, p, LLMCases, meta={"task": task, "module": module, "n": n, **(meta or {})}, unit=unit)
     out: list[GeneratedInput] = []
     rejected: list[str] = []
     for i, case in enumerate(res.parsed.cases[: n * 2], 1):

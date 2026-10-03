@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from .adapters.base import LanguageAdapter
+from .agents.fuzzer import fuzz_unit
 from .agents.oracle import OracleError, build_unit_oracle
+from .agents.reflector import reflect, select_lessons
 from .agents.repair import LoopResult, translate_and_repair
 from .agents.translator import executable_members
 from .config import Settings
@@ -63,8 +65,13 @@ class Pipeline:
         return {m: self.db.test_cases(m, origins) for m in members}
 
     def lessons_for(self, members: list[str]) -> list[dict[str, Any]]:
-        """Lessons relevant to these members (filled in by the reflector, Phase 6)."""
-        return []
+        """Lessons relevant to these members (best feature-tag overlap first)."""
+        cfg = self.settings.pipeline.lessons
+        if not cfg.enabled or cfg.max_in_prompt <= 0:
+            return []
+        chosen = select_lessons(self.db, self.adapter, members, cfg.max_in_prompt)
+        self.db.bump_lesson_uses([les["id"] for les in chosen])
+        return chosen
 
     # ------------------------------------------------------------ stages
     async def ensure_oracle(self, unit: str) -> str | None:
@@ -103,11 +110,17 @@ class Pipeline:
 
     async def fuzz(self, unit: str, members: list[str], loop: LoopResult, dep_code: dict[str, str],
                    lessons: list[dict[str, Any]]) -> LoopResult:
-        """Adversarial rounds (Phase 6). Default: no-op."""
-        return loop
+        """Adversarial rounds until K consecutive clean rounds (repairs on counterexamples)."""
+        return await fuzz_unit(self, unit, members, loop, dep_code, lessons)
 
     async def reflect(self, unit: str, members: list[str], loop: LoopResult) -> None:
-        """Store lessons after a successful repair (Phase 6). Default: no-op."""
+        """Distill lessons when the unit needed at least one repair."""
+        if not (loop.repaired and self.opts.lessons and self.settings.pipeline.lessons.enabled):
+            return
+        try:
+            await reflect(self.adapter, self.db, self.llm, unit, members)
+        except Exception as exc:  # noqa: BLE001 - lessons are best-effort
+            self.db.emit("reflect_failed", unit, error=str(exc)[:300])
 
     def accept(self, unit: str, members: list[str], loop: LoopResult, status: Status, error: str | None = None) -> Status:
         for m in members:

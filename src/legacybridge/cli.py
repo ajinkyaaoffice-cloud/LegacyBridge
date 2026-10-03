@@ -137,8 +137,17 @@ async def _tail_events(db: Blackboard, stop: asyncio.Event, quiet: bool) -> None
                               f"[dim]{p.get('role')} {p.get('model')}[/]")
             elif typ == "oracle":
                 console.print(f"[dim]{unit:<18} oracle {p.get('module')}: {p.get('total')} golden tests[/]")
-            elif typ in ("fuzz_round", "fuzz_bug", "lesson_added", "fallback", "unit_crashed", "llm_failed"):
-                console.print(f"[magenta]{unit:<18} {typ}[/] [dim]{json.dumps(p)[:160]}[/]")
+            elif typ == "fuzz_round":
+                console.print(f"{unit:<18} fuzz round {p['round']}: {p['new_tests']} new tests, no divergence "
+                              f"({p['clean']}/{p['needed']} clean)")
+            elif typ == "fuzz_bug":
+                console.print(f"[magenta]{unit:<18} fuzz round {p['round']}: {p['counterexamples']} counterexample(s) "
+                              f"in {', '.join(p['modules'])} -> repair[/]")
+            elif typ == "lesson_added":
+                console.print(f"[blue]{unit:<18} lesson #{p['id']}: {p['text'][:110]}[/]")
+            elif typ in ("fallback", "unit_crashed", "llm_failed", "fuzz_llm_failed", "reflect_failed"):
+                extra = {k: v for k, v in p.items() if k not in ("id", "ts", "type", "unit")}
+                console.print(f"[yellow]{unit:<18} {typ}[/] [dim]{json.dumps(extra)[:200]}[/]")
         if stop.is_set():
             return
         await asyncio.sleep(0.3)
