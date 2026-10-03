@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LegacyBridge</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="brand">Legacy<b>Bridge</b></div>
+  <div class="source" id="source"></div>
+  <div class="progress"><div class="bar" id="bar"></div><span id="progress-text">–</span></div>
+  <div class="counts" id="counts"></div>
+  <div class="conn" id="conn" title="live event stream"><i></i><span>connecting</span></div>
+</header>
+
+<main>
+  <section class="graph-pane">
+    <div class="pane-head">
+      <h2>Migration units</h2>
+      <span class="hint">dependencies on the left · click a unit</span>
+      <label class="toggle"><input type="checkbox" id="show-copy"> copybooks</label>
+    </div>
+    <div id="graph"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <aside class="detail-pane" id="detail">
+    <div class="empty">Select a unit to see its oracle tests, translation attempts, verdicts and code.</div>
+  </aside>
+
+  <section class="bottom">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="events">Live events</button>
+      <button class="tab" data-tab="lessons">Lessons <span id="n-lessons"></span></button>
+      <button class="tab" data-tab="llm">LLM usage</button>
+      <button class="tab" data-tab="tests">Tests &amp; scenarios</button>
+      <label class="toggle right"><input type="checkbox" id="filter-unit"> only selected unit</label>
+    </div>
+    <div class="tab-body active" id="tab-events"><ol id="events"></ol></div>
+    <div class="tab-body" id="tab-lessons"></div>
+    <div class="tab-body" id="tab-llm"></div>
+    <div class="tab-body" id="tab-tests"></div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

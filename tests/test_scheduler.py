@@ -125,3 +125,20 @@ def test_migrate_cli_dry_run_and_resume(tmp_path):
     db.close()
     res = runner.invoke(app, ["verify", str(BANK_DEMO), "--state", state])
     assert res.exit_code == 0 and "FAIL" not in res.output, res.output
+
+
+@requires_cobc
+def test_migrate_with_relative_state_dir(tmp_path, monkeypatch):
+    """The default state dir (.legacybridge) is relative; translated code runs with another cwd.
+
+    Also: without fuzzing, STMTRPT's page-break bug (invisible to the oracle tests) ships, and the
+    end-to-end scenario diff is what catches it.
+    """
+    from legacybridge.cli import app
+    monkeypatch.chdir(tmp_path)
+    res = CliRunner().invoke(app, ["migrate", str(BANK_DEMO), "--dry-run", "--state", "rel-state", "-q", "--no-fuzz",
+                                   "--out", "rel-out"])
+    assert res.exit_code == 1, res.output
+    assert "18/18 units verified" in res.output
+    assert "STMTRPT/june_statements: DIFFERS" in res.output and res.output.count("IDENTICAL") == 3
+    assert (tmp_path / "rel-out" / "REPORT.md").exists()

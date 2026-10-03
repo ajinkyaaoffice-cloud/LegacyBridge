@@ -34,7 +34,7 @@ class CobcRunner:
     def __init__(self, cobc: str, sandbox: Sandbox, work_dir: Path, copy_dirs: list[Path]):
         self.cobc = cobc
         self.sandbox = sandbox
-        self.work_dir = Path(work_dir)
+        self.work_dir = Path(work_dir).resolve()
         self.copy_dirs = copy_dirs
         self.version = cobc_version(cobc)
         self._locks: dict[tuple[int, str], asyncio.Lock] = {}

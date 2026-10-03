@@ -141,7 +141,7 @@ async def translate_and_repair(adapter: LanguageAdapter, db: Blackboard, llm, se
                                     lesson_ids)
         db.set_status(unit, Status.VERIFYING, attempts=no, model_used=res.model_ref)
         reports = await verify_unit(adapter, members, code, dep_code, tests, settings)
-        _record(db, unit, attempt_id, reports, "recorded")
+        _record(db, unit, attempt_id, reports, "fuzz" if start_code is not None else "oracle")
         ok = all(r.ok for r in reports.values())
         entry = {"attempt": no, "kind": "translate" if is_translate else "repair", "role": role,
                  "model": res.model_ref, "passed": sum(r.passed for r in reports.values()),

@@ -79,7 +79,7 @@ async def reflect(adapter: LanguageAdapter, db: Blackboard, llm, unit: str, memb
         lid = db.add_lesson(text, tags, unit)
         ids.append(lid)
         existing.add(text.lower())
-        db.emit("lesson_added", unit, id=lid, text=text, tags=tags)
+        db.emit("lesson_added", unit, lesson_id=lid, text=text, tags=tags)
     return ids
 
 

@@ -35,6 +35,7 @@ legacybridge = ["dashboard/static/*", "adapters/cobol_python/*.md", "adapters/co
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
 markers = [
   "cobc: requires GnuCOBOL (cobc) on PATH",
   "network: requires real API keys and network",

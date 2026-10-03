@@ -147,3 +147,25 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
   marked as such. Code accepted ungated (eval baseline A) is still diffed, with a note.
 - `report` re-packages and replays scenarios by default (cheap, deterministic). Pass
   `--no-scenarios` to reuse the last results stored in `run_meta`.
+
+## Dashboard (Phase 8)
+
+- **Read-only.** The dashboard only reads the blackboard. It can run before or during `migrate`
+  (SQLite WAL gives concurrent readers) and tails `events` by id (polling every 0.5 s on the server,
+  pushed to the browser as SSE with `Last-Event-ID` resume). Polling SQLite is simpler and more
+  robust than an in-process pub/sub, and it works across processes.
+- **Fresh runs reset the DB in place** (`Blackboard.reset()` deletes rows) instead of unlinking the
+  file. A dashboard that is already open keeps its connection. The SSE stream notices that the
+  max event id dropped below its cursor and sends a `reset` event.
+- **Event payloads cannot override `id/ts/type/unit`.** This fixes a bug where `lesson_added`'s
+  `id` overwrote the event id. Its payload key is now `lesson_id`.
+- **Bound to 127.0.0.1 by default**, because the API serves source and translated code. Cytoscape
+  loads from cdnjs. Without network access the page falls back to a plain unit list.
+- **Graph**: one node per unit (SCC). Units are laid out in columns by dependency depth
+  (dependencies on the left), using a preset layout so no extra layout plugin is needed. A double
+  border means fuzzing found a counterexample in that unit. Copybook units are hidden by default.
+- **Attempt `stage`** is `oracle` (the initial differential tests) or `fuzz` (a repair started by a
+  fuzz counterexample).
+- **Paths**: the adapter and cobc work dirs are resolved to absolute paths. Translated code runs
+  with cwd set to a temp dir, so the default relative `.legacybridge` state dir used to break every
+  run. Tests now cover relative state and out dirs.

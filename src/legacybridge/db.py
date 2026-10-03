@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS attempts (
     verdict TEXT,                     -- pass | fail | error
     diff_json TEXT,
     lessons_json TEXT,                -- lesson ids put in the prompt
-    stage TEXT,                       -- recorded | fuzz
+    stage TEXT,                       -- oracle (initial tests) | fuzz (repair after a counterexample)
     created_at REAL NOT NULL
 );
 
@@ -186,6 +186,16 @@ class Blackboard:
         rows = self.query(sql, params)
         return rows[0] if rows else None
 
+    def reset(self) -> None:
+        """Delete all rows (fresh run) without replacing the file, so open readers see the reset."""
+        with self._lock:
+            tables = [r[0] for r in self.conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+            for t in tables:
+                self.conn.execute(f"DELETE FROM {t}")
+            self.conn.execute("DELETE FROM sqlite_sequence")
+            self.conn.commit()
+
     def close(self) -> None:
         with self._lock:
             self.conn.close()
@@ -202,7 +212,7 @@ class Blackboard:
     # ------------------------------------------------------------ events
 
     def emit(self, type_: str, unit: str | None = None, **payload: Any) -> None:
-        """Append an event (consumed by the dashboard SSE stream)."""
+        """Append an event (consumed by the dashboard SSE stream). Payload keys id/ts/type/unit are reserved."""
         self.execute(
             "INSERT INTO events(ts, type, unit, payload_json) VALUES (?, ?, ?, ?)",
             (time.time(), type_, unit, json.dumps(payload, default=str)),
@@ -211,7 +221,7 @@ class Blackboard:
     def events_after(self, last_id: int, limit: int = 500) -> list[dict[str, Any]]:
         rows = self.query("SELECT * FROM events WHERE id > ? ORDER BY id LIMIT ?", (last_id, limit))
         return [
-            {"id": r["id"], "ts": r["ts"], "type": r["type"], "unit": r["unit"], **json.loads(r["payload_json"] or "{}")}
+            {**json.loads(r["payload_json"] or "{}"), "id": r["id"], "ts": r["ts"], "type": r["type"], "unit": r["unit"]}
             for r in rows
         ]
 

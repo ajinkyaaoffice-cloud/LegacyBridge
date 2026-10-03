@@ -235,7 +235,7 @@ def write_report(rep: dict[str, Any], out_dir: Path) -> tuple[Path, Path]:
 async def integrate(adapter: LanguageAdapter, db: Blackboard, settings: Settings, plan: MigrationPlan | None,
                     out_dir: Path) -> IntegrationResult:
     """Package accepted code into `out_dir`, diff scenarios end to end, write REPORT.md + report.json."""
-    out_dir = Path(out_dir)
+    out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     code = accepted_code(adapter, db)
     pkg = adapter.package(code, out_dir, package_name(adapter)) if code else None

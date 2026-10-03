@@ -64,7 +64,8 @@ class CobolPythonAdapter(LanguageAdapter):
     def __init__(self, root: Path, *, sandbox=None, work_dir: Path | None = None, cobc: str | None = None):
         super().__init__(root)
         self.sandbox = sandbox
-        self.work_dir = Path(work_dir) if work_dir else self.root / ".legacybridge" / "work"
+        # absolute: generated code runs with cwd set to a temp dir, so relative paths would not resolve
+        self.work_dir = (Path(work_dir) if work_dir else self.root / ".legacybridge" / "work").resolve()
         self.cobc = cobc or shutil.which("cobc")
         self.infos: dict[str, ModuleInfo] = {}
         self.sources: dict[str, str] = {}
@@ -402,7 +403,7 @@ class CobolPythonAdapter(LanguageAdapter):
             raise RuntimeError("adapter has no sandbox")
         run_dir = Path(tempfile.mkdtemp(prefix="pkgrun-", dir=self._ensure(self.work_dir / "runs")))
         try:
-            return await self.sandbox.run([sys.executable, "-I", "-S", "-B", str(Path(package_dir) / "__main__.py"),
+            return await self.sandbox.run([sys.executable, "-I", "-S", "-B", str(Path(package_dir).resolve() / "__main__.py"),
                                            module], stdin=stdin, cwd=run_dir)
         finally:
             shutil.rmtree(run_dir, ignore_errors=True)

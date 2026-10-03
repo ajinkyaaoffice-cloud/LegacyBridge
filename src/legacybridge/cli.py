@@ -46,15 +46,14 @@ def _open_db(settings: Settings, state: Optional[Path], root: Path | None = None
     """Open the blackboard. Refuses to mix two different source trees in one state dir."""
     sdir = _state_dir(settings, state)
     db_path = sdir / "state.db"
-    if fresh and db_path.exists():
-        for suffix in ("", "-wal", "-shm"):
-            Path(str(db_path) + suffix).unlink(missing_ok=True)
     db = Blackboard(db_path)
+    if fresh:
+        db.reset()   # in place, so a running dashboard keeps following the same database
     if root is not None:
         prev = db.get_meta("source_root")
         if prev and prev != str(root.resolve()):
             db.close()
-            console.print(f"[red]State dir {sdir} belongs to {prev}.[/] Use --fresh or --state <dir>.")
+            console.print(f"[red]State dir {sdir} belongs to {prev}.[/] Start a fresh run (no --resume) or use --state <dir>.")
             raise typer.Exit(2)
     return db
 
@@ -144,7 +143,7 @@ async def _tail_events(db: Blackboard, stop: asyncio.Event, quiet: bool) -> None
                 console.print(f"[magenta]{unit:<18} fuzz round {p['round']}: {p['counterexamples']} counterexample(s) "
                               f"in {', '.join(p['modules'])} -> repair[/]")
             elif typ == "lesson_added":
-                console.print(f"[blue]{unit:<18} lesson #{p['id']}: {p['text'][:110]}[/]")
+                console.print(f"[blue]{unit:<18} lesson #{p['lesson_id']}: {p['text'][:110]}[/]")
             elif typ in ("fallback", "unit_crashed", "llm_failed", "fuzz_llm_failed", "reflect_failed"):
                 extra = {k: v for k, v in p.items() if k not in ("id", "ts", "type", "unit")}
                 console.print(f"[yellow]{unit:<18} {typ}[/] [dim]{json.dumps(extra)[:200]}[/]")
@@ -216,7 +215,8 @@ def migrate(
     if out is not None:
         from .agents.integrator import integrate
         res = asyncio.run(integrate(ad, db, settings, plan, out))
-        console.print(f"Package written to [bold]{res.package_dir}[/]; report: [bold]{res.report_path}[/]")
+        console.print((f"Package written to [bold]{res.package_dir}[/]; " if res.package_dir else
+                       "[yellow]No verified code to package.[/] ") + f"Report: [bold]{res.report_path}[/]")
         for sr in res.scenarios:
             mark = {True: "[green]IDENTICAL[/]", False: "[red]DIFFERS[/]", None: "[yellow]skipped[/]"}[sr.passed]
             console.print(f"  scenario {sr.module}/{sr.name}: {mark}" + (f" ({sr.note})" if sr.note else ""))
@@ -303,6 +303,25 @@ def report(
                   + (f", [red]{len(bad)} differ[/]" if bad else ""))
     if bad:
         raise typer.Exit(1)
+
+
+@app.command()
+def dashboard(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address (keep it local: the API serves code)."),
+    port: int = typer.Option(8765, "--port"),
+    state: Optional[Path] = STATE_OPT,
+) -> None:
+    """Live dashboard (units graph, attempts, verdicts, events) at http://HOST:PORT."""
+    import uvicorn
+
+    from .dashboard.app import create_app
+
+    settings = _settings(True)
+    db_path = _state_dir(settings, state) / "state.db"
+    if not db_path.exists():
+        console.print(f"[yellow]{db_path} does not exist yet; the dashboard will show it once a run starts.[/]")
+    console.print(f"LegacyBridge dashboard on [bold]http://{host}:{port}[/]  (state: {db_path}; Ctrl-C to stop)")
+    uvicorn.run(create_app(db_path), host=host, port=port, log_level="warning")
 
 
 def main() -> None:  # pragma: no cover
