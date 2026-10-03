@@ -110,6 +110,10 @@ class LanguageAdapter(ABC):
     def random_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
         """Seeded random inputs derived from data definitions."""
 
+    def volume_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
+        """Long inputs (many records / many calls); used by the eval hidden suite. Optional."""
+        return []
+
     @abstractmethod
     def mutation_inputs(self, module: str, seeds: list[str], n: int, rng: random.Random) -> list[GeneratedInput]:
         """Adversarial mutations (literal boundaries, sign flips, overflow) of existing inputs."""

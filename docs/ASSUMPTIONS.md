@@ -169,3 +169,23 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
 - **Paths**: the adapter and cobc work dirs are resolved to absolute paths. Translated code runs
   with cwd set to a temp dir, so the default relative `.legacybridge` state dir used to break every
   run. Tests now cover relative state and out dirs.
+
+## Evaluation (Phase 9)
+
+- **Baselines are pipeline switches, not separate code paths.** A is `repair=False,
+  max_attempts=1, fuzz=False, lessons=False, gate=False`. B is `fuzz=False, lessons=False`. All
+  three configs use the same prompts, including sample I/O, so the comparison isolates the
+  feedback loops. The ungated baseline A stores code from units that failed (status BLOCKED, with
+  a note), and the scheduler lets their dependents proceed, so A really ships everything.
+- **Held-out suite.** The hidden suite uses its own seed (`HIDDEN_SEED`) and is rebuilt every eval
+  run in a separate `hidden.db`. Its expected outputs come from the original programs. Inputs
+  that a configuration saw during migration are excluded from that configuration's score.
+- **Volume tests are a separate category.** One third of the hidden suite is long inputs (one
+  header and many details, or many consecutive CALLs). The oracle generator does not produce
+  these: it uses short property and random cases. This is deliberate. It mirrors the realistic
+  situation in which a test-based gate is fooled by thin tests, and it is the gap the fuzzer is
+  meant to close. If we gave the oracle the same generator, the B vs Full comparison would say
+  less about real-world risk.
+- **Dry-run numbers are mechanism checks.** They show that the gate, repair, escalation, fuzzing
+  and lessons catch the mock's catalogued bugs. They say nothing about model quality, and every
+  results file states this.

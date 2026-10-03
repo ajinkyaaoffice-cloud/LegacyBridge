@@ -18,7 +18,7 @@ from ..base import GeneratedInput, LanguageAdapter, SourceModule
 from .cobc import CobcRunner
 from .driver import generate_driver
 from .inputs import (InputGenerator, Literals, canonical, case_from_llm, harvest_literals, llm_instructions,
-                     mutation_cases, property_cases, random_cases, validate)
+                     mutation_cases, property_cases, random_cases, validate, volume_cases)
 from .harness import generate_harness, param_keys
 from .iofmt import Layout, layout_for
 from .parser import ModuleInfo, UnsupportedCobol, parse_copybook, parse_program
@@ -231,6 +231,10 @@ class CobolPythonAdapter(LanguageAdapter):
     def random_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
         return [GeneratedInput(f"random-{i}", t, "random")
                 for i, t in enumerate(random_cases(self._gen(module, rng), n), 1)]
+
+    def volume_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
+        return [GeneratedInput(f"volume-{i}", t, "volume")
+                for i, t in enumerate(volume_cases(self._gen(module, rng), n), 1)]
 
     def mutation_inputs(self, module: str, seeds: list[str], n: int, rng: random.Random) -> list[GeneratedInput]:
         return [GeneratedInput(f"mutation-{i}", t, "fuzz_mutation")

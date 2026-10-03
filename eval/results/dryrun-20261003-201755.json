@@ -1,0 +1,500 @@
+{
+  "generated_at": "2026-10-03 20:17:55",
+  "mode": "dry-run (MockProvider)",
+  "corpus": "examples/bank_demo",
+  "hidden_seed": 20240917,
+  "hidden_per_module": 60,
+  "hidden_tests": 660,
+  "results": [
+    {
+      "config": "baseline_a",
+      "title": "A: single-shot (no tests, no repair, ungated)",
+      "options": {
+        "repair": false,
+        "max_attempts": 1,
+        "fuzz": false,
+        "lessons": false,
+        "gate": false
+      },
+      "seconds": 9.4,
+      "unit_status": {
+        "verified": 13,
+        "blocked": 5
+      },
+      "modules": {
+        "ACCTVAL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "AMORT": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "BALUPD": {
+          "status": "blocked",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 0,
+          "correct": false,
+          "first_failure": {
+            "kind": "stdout",
+            "line": 1,
+            "expected": "REJECT 00001 AC0017   E5 ACCOUNT CLOSED             ",
+            "actual": "REJECT 00001 AC0017   E5 ACCOUNT CLOSED"
+          }
+        },
+        "DATEUTIL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "FEECALC": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "FMTUTIL": {
+          "status": "blocked",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 40,
+          "correct": false,
+          "first_failure": {
+            "kind": "stdout",
+            "line": 1,
+            "expected": "D|+00000000400|20220718|009518|07/18/2022N         ",
+            "actual": "D|+00000000400|20220718|009518|07/18/2022          "
+          }
+        },
+        "INTCALC": {
+          "status": "blocked",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 48,
+          "correct": false,
+          "first_failure": {
+            "kind": "stdout",
+            "line": 1,
+            "expected": "+00000859662|980464|20740603|20820515|M|+067007977|+02862|00",
+            "actual": "+00000859662|980464|20740603|20820515|M|+067007978|+02862|00"
+          }
+        },
+        "INTPOST": {
+          "status": "blocked",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 35,
+          "correct": false,
+          "first_failure": {
+            "kind": "stdout",
+            "line": 2,
+            "expected": "AC0002   DAYS=     3 INT=         9.86 RC=00",
+            "actual": "AC0002   DAYS=     3 INT=         9.87 RC=00"
+          }
+        },
+        "LOANCHK": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "LOANSCHD": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "STMTRPT": {
+          "status": "blocked",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 0,
+          "correct": false,
+          "first_failure": {
+            "kind": "stdout",
+            "line": 2,
+            "expected": "STATEMENT DATE 06/22/20266.57CR    ",
+            "actual": "STATEMENT DATE 06/22/2026          "
+          }
+        }
+      },
+      "summary": {
+        "modules": 11,
+        "accepted": 11,
+        "verified": 6,
+        "correct_on_hidden": 6,
+        "accepted_but_wrong": 5,
+        "verified_but_wrong": 0,
+        "hidden_pass_rate": 0.7318,
+        "scenarios_identical": 2,
+        "scenarios_total": 4,
+        "attempts": 10,
+        "fuzz_bugs_found": 0,
+        "lessons": 0
+      },
+      "scenarios": [
+        {
+          "name": "daily_run",
+          "module": "BALUPD",
+          "passed": false
+        },
+        {
+          "name": "month_end",
+          "module": "INTPOST",
+          "passed": true
+        },
+        {
+          "name": "portfolio",
+          "module": "LOANSCHD",
+          "passed": true
+        },
+        {
+          "name": "june_statements",
+          "module": "STMTRPT",
+          "passed": false
+        }
+      ],
+      "llm": {
+        "calls": 21,
+        "cached": 0,
+        "failed": 0,
+        "prompt_tokens": 78527,
+        "completion_tokens": 29376,
+        "models": {
+          "mock/mock": 21
+        }
+      }
+    },
+    {
+      "config": "baseline_b",
+      "title": "B: tests + repair loop (no fuzzing, no lessons)",
+      "options": {
+        "repair": true,
+        "max_attempts": null,
+        "fuzz": false,
+        "lessons": false,
+        "gate": true
+      },
+      "seconds": 13.7,
+      "unit_status": {
+        "verified": 18
+      },
+      "modules": {
+        "ACCTVAL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "AMORT": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "BALUPD": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "DATEUTIL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "FEECALC": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "FMTUTIL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "INTCALC": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "INTPOST": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "LOANCHK": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "LOANSCHD": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "STMTRPT": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 40,
+          "correct": false,
+          "first_failure": {
+            "kind": "stdout",
+            "line": 15,
+            "expected": "--- CONTINUED ---",
+            "actual": "06/21 THU CAROL WU                       -813.21      33,760.36"
+          }
+        }
+      },
+      "summary": {
+        "modules": 11,
+        "accepted": 11,
+        "verified": 11,
+        "correct_on_hidden": 10,
+        "accepted_but_wrong": 1,
+        "verified_but_wrong": 1,
+        "hidden_pass_rate": 0.9697,
+        "scenarios_identical": 3,
+        "scenarios_total": 4,
+        "attempts": 15,
+        "fuzz_bugs_found": 0,
+        "lessons": 0
+      },
+      "scenarios": [
+        {
+          "name": "daily_run",
+          "module": "BALUPD",
+          "passed": true
+        },
+        {
+          "name": "month_end",
+          "module": "INTPOST",
+          "passed": true
+        },
+        {
+          "name": "portfolio",
+          "module": "LOANSCHD",
+          "passed": true
+        },
+        {
+          "name": "june_statements",
+          "module": "STMTRPT",
+          "passed": false
+        }
+      ],
+      "llm": {
+        "calls": 26,
+        "cached": 0,
+        "failed": 0,
+        "prompt_tokens": 112641,
+        "completion_tokens": 35084,
+        "models": {
+          "mock/mock": 26
+        }
+      }
+    },
+    {
+      "config": "full",
+      "title": "Full: tests + repair + adversarial fuzzing + lessons",
+      "options": {
+        "repair": true,
+        "max_attempts": null,
+        "fuzz": true,
+        "lessons": true,
+        "gate": true
+      },
+      "seconds": 34.0,
+      "unit_status": {
+        "verified": 18
+      },
+      "modules": {
+        "ACCTVAL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "AMORT": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "BALUPD": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "DATEUTIL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "FEECALC": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "FMTUTIL": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "INTCALC": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "INTPOST": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "LOANCHK": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "LOANSCHD": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        },
+        "STMTRPT": {
+          "status": "verified",
+          "accepted": true,
+          "hidden_total": 60,
+          "hidden_excluded_seen": 0,
+          "hidden_passed": 60,
+          "correct": true
+        }
+      },
+      "summary": {
+        "modules": 11,
+        "accepted": 11,
+        "verified": 11,
+        "correct_on_hidden": 11,
+        "accepted_but_wrong": 0,
+        "verified_but_wrong": 0,
+        "hidden_pass_rate": 1.0,
+        "scenarios_identical": 4,
+        "scenarios_total": 4,
+        "attempts": 16,
+        "fuzz_bugs_found": 1,
+        "lessons": 5
+      },
+      "scenarios": [
+        {
+          "name": "daily_run",
+          "module": "BALUPD",
+          "passed": true
+        },
+        {
+          "name": "month_end",
+          "module": "INTPOST",
+          "passed": true
+        },
+        {
+          "name": "portfolio",
+          "module": "LOANSCHD",
+          "passed": true
+        },
+        {
+          "name": "june_statements",
+          "module": "STMTRPT",
+          "passed": true
+        }
+      ],
+      "llm": {
+        "calls": 54,
+        "cached": 0,
+        "failed": 0,
+        "prompt_tokens": 213686,
+        "completion_tokens": 99796,
+        "models": {
+          "mock/mock": 54
+        }
+      }
+    }
+  ]
+}

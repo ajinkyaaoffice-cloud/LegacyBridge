@@ -164,7 +164,9 @@ async def build_unit_oracle(adapter: LanguageAdapter, db: Blackboard, llm, setti
 async def build_hidden_suite(adapter: LanguageAdapter, db: Blackboard, module: str, n: int, seed: int) -> int:
     """Held-out tests (never shown to translator/verifier) used by `eval` to measure residual bugs."""
     rng = module_rng(seed, module, "hidden")
-    inputs = adapter.property_inputs(module, n // 2, rng) + adapter.random_inputs(module, n - n // 2, rng)
+    k = n // 3
+    inputs = (adapter.property_inputs(module, k, rng) + adapter.random_inputs(module, k, rng)
+              + adapter.volume_inputs(module, n - 2 * k, rng))
     for gi in inputs:
         gi.origin = "hidden"
     rows = await record_golden(adapter, db, module, inputs, unit=None)

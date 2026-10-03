@@ -53,7 +53,7 @@ def _open_db(settings: Settings, state: Optional[Path], root: Path | None = None
         prev = db.get_meta("source_root")
         if prev and prev != str(root.resolve()):
             db.close()
-            console.print(f"[red]State dir {sdir} belongs to {prev}.[/] Start a fresh run (no --resume) or use --state <dir>.")
+            console.print(f"[red]State dir {sdir} belongs to {prev}.[/] Start fresh (`analyze --fresh`, or `migrate` without --resume) or use --state <dir>.")
             raise typer.Exit(2)
     return db
 
@@ -322,6 +322,45 @@ def dashboard(
         console.print(f"[yellow]{db_path} does not exist yet; the dashboard will show it once a run starts.[/]")
     console.print(f"LegacyBridge dashboard on [bold]http://{host}:{port}[/]  (state: {db_path}; Ctrl-C to stop)")
     uvicorn.run(create_app(db_path), host=host, port=port, log_level="warning")
+
+
+@app.command("eval")
+def eval_cmd(
+    path: Path = typer.Argument(Path("examples/bank_demo"), exists=True, file_okay=False, help="Corpus."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Offline: MockProvider instead of real APIs."),
+    configs: str = typer.Option("baseline_a,baseline_b,full", "--configs", help="Comma-separated subset."),
+    hidden_n: int = typer.Option(60, "--hidden", help="Held-out tests per module."),
+    out: Path = typer.Option(Path("eval/results"), "--out", help="Where results JSON + MD go."),
+    run_dir: Optional[Path] = typer.Option(None, "--run-dir", help="Scratch state (default eval/runs/<mode>)."),
+    concurrency: Optional[int] = typer.Option(None, "--concurrency", "-j"),
+    adapter: str = ADAPTER_OPT,
+) -> None:
+    """Baseline A (single-shot) vs Baseline B (tests + repair) vs Full, scored on a hidden suite."""
+    from .evaluation.runner import CONFIGS, EvalRun, render_markdown, run_eval, write_results
+
+    names = [c.strip() for c in configs.split(",") if c.strip()]
+    if unknown := [c for c in names if c not in CONFIGS]:
+        console.print(f"[red]Unknown config(s): {', '.join(unknown)}[/] (choose from {', '.join(CONFIGS)})")
+        raise typer.Exit(2)
+    settings = _settings(dry_run)
+    if not dry_run:
+        probe = LLMClient(settings)
+        if not probe.chain("translator"):
+            console.print("[red]No API keys found for any configured provider.[/] Add keys to .env (see "
+                          ".env.example) or run with --dry-run.")
+            raise typer.Exit(2)
+    run = EvalRun(root=path, run_dir=(run_dir or Path("eval/runs") / ("dryrun" if dry_run else "live")).resolve(),
+                  settings=settings, hidden_n=hidden_n, concurrency=concurrency, configs=names,
+                  adapter_name=adapter)
+    ok, msg = run.adapter().toolchain_status()
+    if not ok:
+        console.print(f"[red]{msg}[/]\nThe evaluation needs the original programs to record golden outputs.")
+        raise typer.Exit(2)
+    console.print(f"Evaluating {', '.join(names)} on {path} ({'dry run' if dry_run else 'live APIs'}) ...")
+    ev = asyncio.run(run_eval(run))
+    md, js = write_results(ev, out)
+    console.print(render_markdown(ev).split("\n## Per module")[0])
+    console.print(f"Results: [bold]{md}[/] and {js.name}")
 
 
 def main() -> None:  # pragma: no cover

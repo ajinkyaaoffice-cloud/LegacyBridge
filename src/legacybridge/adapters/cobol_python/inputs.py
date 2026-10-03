@@ -287,6 +287,25 @@ def random_cases(gen: InputGenerator, n: int) -> list[str]:
     return cases
 
 
+def volume_cases(gen: InputGenerator, n: int) -> list[str]:
+    """Long inputs: for multi-record files ONE leading record followed by many detail records
+    (exercises page breaks, table limits, counters); for subprograms many CALLs in a row (state
+    carried between calls)."""
+    cases = []
+    limit = MAX_LINES[gen.layout.mode]
+    recs = gen.layout.records
+    for _ in range(n):
+        size = gen.rng.randint(limit // 2, limit - 1)
+        mixed = gen.rng.random() < 0.5
+        make = lambda rec: gen.record(rec, random_=mixed)          # noqa: E731
+        if gen.layout.mode == "file" and len(recs) > 1:
+            lines = [make(recs[0])] + [make(gen.rng.choice(recs[1:])) for _ in range(size - 1)]
+        else:
+            lines = gen.sequence(size, make)
+        cases.append("\n".join(lines) + "\n")
+    return cases
+
+
 def mutation_cases(gen: InputGenerator, seeds: list[str], n: int) -> list[str]:
     """Adversarial edits of existing inputs: boundary values, literal +-1, sign flips, line ops."""
     rng = gen.rng
