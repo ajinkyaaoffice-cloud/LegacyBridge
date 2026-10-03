@@ -48,3 +48,26 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
 - On macOS, files under ~/Desktop may get the `hidden` flag (iCloud). Python 3.13 ignores hidden
   `.pth` files, breaking editable installs. Fix: `chflags nohidden .venv/lib/python3.*/site-packages/*.pth`.
   pytest is configured with `pythonpath = ["src", "tests"]` so tests don't depend on it.
+
+## Differential-testing contract (Phase 3)
+- **Subprograms** are tested through a generated COBOL driver (`adapters/cobol_python/driver.py`):
+  one stdin line = one CALL, every elementary parameter field `|`-separated (numerics: digits
+  with implied decimals, `+`/`-` prefix when signed). The driver re-declares the LINKAGE records
+  from the parsed data tree (free format) instead of COPYing them, so it also works for
+  parameters not defined in copybooks. Output-only fields are still supplied as input: some
+  programs deliberately leave outputs untouched on error, and that must be captured.
+- All lines of one test case run in ONE process, so WORKING-STORAGE persistence across CALLs is
+  part of the observed behavior (the Python harness must preserve module state the same way).
+- **Mains** read their LINE SEQUENTIAL input file from stdin (`ASSIGN TO KEYBOARD`).
+- Inputs are rejected (not recorded) if lines exceed the record length (GnuCOBOL would split them
+  and lose a character), contain non-printable characters, or, for driver lines, have malformed
+  numerics (driver input is not what we're testing).
+- LLMs propose cases as **field values** (JSON), never as fixed-width text: the adapter formats
+  them. LLMs are bad at counting columns; this made nearly all proposed cases usable.
+- The oracle runs each module twice on one input first and refuses non-deterministic programs.
+- Compile cache key = cobc version + all involved sources + copybooks + driver text.
+- Input generators harvest literals from the PROCEDURE DIVISION (numbers, and string literals a
+  field is compared to in IF/EVALUATE) as boundary candidates; IDs introduced by a leading record
+  are reused by following records so transactions hit existing accounts.
+- `hidden` test cases (eval only) are generated with a different seed and never shown to the
+  translator, verifier, repair loop or fuzzer.

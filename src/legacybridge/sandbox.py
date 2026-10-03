@@ -62,9 +62,9 @@ class Sandbox:
             self.cfg.macos_seatbelt and sys.platform == "darwin" and shutil.which("sandbox-exec")
         )
 
-    def _limits(self) -> None:  # runs in the child between fork and exec
+    def _limits(self, cpu: int | None = None) -> None:  # runs in the child between fork and exec
         os.setsid()
-        cpu = self.cfg.cpu_seconds
+        cpu = cpu or self.cfg.cpu_seconds
         _try_rlimit(resource.RLIMIT_CPU, (cpu, cpu + 1))
         _try_rlimit(resource.RLIMIT_CORE, (0, 0))
         _try_rlimit(resource.RLIMIT_FSIZE, (50 * 1024 * 1024, 50 * 1024 * 1024))
@@ -80,6 +80,7 @@ class Sandbox:
         cwd: Path,
         env_extra: dict[str, str] | None = None,
         timeout: float | None = None,
+        cpu_seconds: int | None = None,
     ) -> RunResult:
         """Run `argv` in `cwd` feeding `stdin`; never raises for child failures."""
         cwd = Path(cwd)
@@ -110,7 +111,7 @@ class Sandbox:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                preexec_fn=self._limits,
+                preexec_fn=lambda: self._limits(cpu_seconds),
             )
             truncated = False
 

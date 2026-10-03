@@ -8,6 +8,11 @@ from pathlib import Path
 
 from ...sandbox import RunResult
 from ..base import GeneratedInput, LanguageAdapter, SourceModule
+from .cobc import CobcRunner
+from .driver import generate_driver
+from .inputs import (InputGenerator, Literals, canonical, case_from_llm, harvest_literals, llm_instructions,
+                     mutation_cases, property_cases, random_cases, validate)
+from .iofmt import Layout, layout_for
 from .parser import ModuleInfo, UnsupportedCobol, parse_copybook, parse_program
 
 SOURCE_EXT = {".cbl", ".cob", ".cobol"}
@@ -28,6 +33,9 @@ class CobolPythonAdapter(LanguageAdapter):
         self.cobc = cobc or shutil.which("cobc")
         self.infos: dict[str, ModuleInfo] = {}
         self.sources: dict[str, str] = {}
+        self._layouts: dict[str, Layout] = {}
+        self._literals: dict[str, Literals] = {}
+        self._cobc_runner: CobcRunner | None = None
 
     # ------------------------------------------------------------ discovery
     def copy_dirs(self) -> list[Path]:
@@ -96,25 +104,103 @@ class CobolPythonAdapter(LanguageAdapter):
         return False, ("GnuCOBOL (cobc) not found. Install: `brew install gnucobol` (macOS) or "
                        "`sudo apt-get install gnucobol` (Debian/Ubuntu)")
 
-    # ------------------------------------------------------------ filled in by later phases
+    # ------------------------------------------------------------ legacy execution
+    def layout(self, module: str) -> Layout:
+        if module not in self._layouts:
+            self._layouts[module] = layout_for(self.infos[module])
+        return self._layouts[module]
+
+    def testable(self, module: str) -> str | None:
+        info = self.infos.get(module)
+        if info is None or info.kind == "copybook":
+            return f"{module} is not executable"
+        try:
+            self.layout(module)
+        except UnsupportedCobol as exc:
+            return str(exc)
+        return None
+
+    def callees(self, module: str) -> list[str]:
+        """Transitive CALL closure of `module` (excluding itself)."""
+        seen: set[str] = set()
+        stack = list(self.infos[module].calls)
+        while stack:
+            m = stack.pop()
+            if m in seen or m == module or m not in self.infos:
+                continue
+            seen.add(m)
+            stack.extend(self.infos[m].calls)
+        return sorted(seen)
+
+    def _runner(self) -> CobcRunner:
+        if self._cobc_runner is None:
+            if not self.cobc:
+                raise RuntimeError(self.toolchain_status()[1])
+            if self.sandbox is None:
+                raise RuntimeError("adapter has no sandbox")
+            self._cobc_runner = CobcRunner(self.cobc, self.sandbox, self.work_dir, self.copy_dirs())
+        return self._cobc_runner
+
+    async def build_legacy(self, module: str) -> Path:
+        """Compile (cached) the original module; subprograms get a generated driver."""
+        info = self.infos[module]
+        sources = [Path(self.infos[m].path) for m in [module, *self.callees(module)]]
+        copybooks = [Path(i.path) for i in self.infos.values() if i.kind == "copybook"]
+        driver = generate_driver(info, self.layout(module)) if info.kind == "subprogram" else None
+        return await self._runner().build(sources, driver, copybooks)
+
+    def driver_source(self, module: str) -> str | None:
+        info = self.infos[module]
+        return generate_driver(info, self.layout(module)) if info.kind == "subprogram" else None
+
     async def run_legacy(self, module: str, stdin: str) -> RunResult:
-        raise NotImplementedError
+        exe = await self.build_legacy(module)
+        return await self._runner().run(exe, stdin)
+
+    # ------------------------------------------------------------ test inputs
+    def _gen(self, module: str, rng: random.Random) -> InputGenerator:
+        if module not in self._literals:
+            self._literals[module] = harvest_literals(self.sources[module])
+        return InputGenerator(self.layout(module), self._literals[module], rng)
 
     def input_spec(self, module: str) -> str:
-        raise NotImplementedError
+        lay = self.layout(module)
+        if lay.mode == "call":
+            head = (f"{module} is a CALLed subprogram (USING {', '.join(lay.params)}). A test-harness driver "
+                    "reads stdin: one line = one CALL; all parameter fields '|'-separated; numerics are "
+                    "digits only with implied decimals, signed ones prefixed by '+'/'-'. After each CALL it "
+                    "prints the same layout with the values left in the parameters.")
+        else:
+            head = (f"{module} is a main program; stdin is its input file (LINE SEQUENTIAL), one record per "
+                    f"line, max {lay.max_length} chars. Output is whatever it DISPLAYs; exit code = RETURN-CODE.")
+        recs = "\n".join(f"Record {r.name} ({r.length} chars):\n{r.describe()}" for r in lay.records)
+        return f"{head}\n{recs}"
+
+    def canonical_input(self, module: str, text: str) -> str:
+        return canonical(self.layout(module), text)
 
     def validate_input(self, module: str, text: str) -> str | None:
-        raise NotImplementedError
+        return validate(self.layout(module), text)
+
+    def llm_case_instructions(self, module: str) -> str:
+        return llm_instructions(self.layout(module))
+
+    def parse_llm_case(self, module: str, case: dict) -> str:
+        return case_from_llm(self.layout(module), case)
 
     def property_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
-        raise NotImplementedError
+        return [GeneratedInput(f"property-{i}", t, "property")
+                for i, t in enumerate(property_cases(self._gen(module, rng), n), 1)]
 
     def random_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
-        raise NotImplementedError
+        return [GeneratedInput(f"random-{i}", t, "random")
+                for i, t in enumerate(random_cases(self._gen(module, rng), n), 1)]
 
     def mutation_inputs(self, module: str, seeds: list[str], n: int, rng: random.Random) -> list[GeneratedInput]:
-        raise NotImplementedError
+        return [GeneratedInput(f"mutation-{i}", t, "fuzz_mutation")
+                for i, t in enumerate(mutation_cases(self._gen(module, rng), seeds, n), 1)]
 
+    # ------------------------------------------------------------ target side (Phase 4)
     def target_name(self, module: str) -> str:
         raise NotImplementedError
 

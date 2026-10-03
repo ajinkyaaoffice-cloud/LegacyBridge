@@ -7,6 +7,8 @@ Real runs never use this module.
 
 from __future__ import annotations
 
+import json
+import random
 from typing import TYPE_CHECKING
 
 from ...llm.mock import default_brain
@@ -48,3 +50,31 @@ class CobolMockBrain:
         if info.features:
             lines.append(f"- Semantics to watch: {', '.join(info.features)}.")
         return "\n".join(lines)
+
+    def do_oracle(self, req: LLMRequest) -> str:
+        """Plausible LLM test cases: boundary-style inputs expressed as field values (JSON)."""
+        return self._cases(req, "oracle")
+
+    def do_fuzz(self, req: LLMRequest) -> str:
+        return self._cases(req, "fuzz")
+
+    def _cases(self, req: LLMRequest, salt: str) -> str:
+        from .inputs import InputGenerator, harvest_literals, property_cases
+
+        name = req.meta["module"]
+        n = int(req.meta.get("n", 5))
+        lay = self.adapter.layout(name)
+        gen = InputGenerator(lay, harvest_literals(self.adapter.sources[name]), random.Random(f"mock:{salt}:{name}"))
+        cases = []
+        for i, text in enumerate(property_cases(gen, n), 1):
+            records = []
+            for line in text.rstrip("\n").split("\n"):
+                rec = lay.record_for(line)
+                if rec is None:
+                    continue
+                values = {f.key: (str(v) if not isinstance(v, str) else v.rstrip())
+                          for f, v in zip(rec.fields, (f.parse(t) for f, t in zip(rec.fields, rec.split(line))))}
+                records.append({"record": rec.name, "fields": values})
+            if records:
+                cases.append({"name": f"mock-{salt}-{i}", "why": "deterministic mock case", "records": records})
+        return json.dumps({"cases": cases})

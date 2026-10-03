@@ -80,6 +80,24 @@ class LanguageAdapter(ABC):
     def validate_input(self, module: str, text: str) -> str | None:
         """None if `text` is an acceptable input for `module`, else a reason."""
 
+    def canonical_input(self, module: str, text: str) -> str:
+        """Normalize an input (line endings, padding) before validation and storage."""
+        return text
+
+    def llm_case_instructions(self, module: str) -> str:
+        """How an LLM must express a test case (JSON) for `module`."""
+        return 'JSON shape: {"cases": [{"name": "...", "why": "...", "stdin": "<exact stdin text>"}]}'
+
+    def parse_llm_case(self, module: str, case: dict[str, Any]) -> str:
+        """Turn one LLM-proposed case into stdin text (raise ValueError if unusable)."""
+        if not isinstance(case.get("stdin"), str):
+            raise ValueError("'stdin' must be a string")
+        return case["stdin"]
+
+    def testable(self, module: str) -> str | None:
+        """None if the module can be differentially tested, else why not."""
+        return None
+
     @abstractmethod
     def property_inputs(self, module: str, n: int, rng: random.Random) -> list[GeneratedInput]:
         """Boundary-value inputs derived from data definitions."""
