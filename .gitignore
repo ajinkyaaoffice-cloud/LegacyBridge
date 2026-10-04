@@ -10,3 +10,4 @@ eval/runs/
 .pytest_cache/
 src/*.egg-info/
 .legacybridge-demo/
+.legacybridge-web*/

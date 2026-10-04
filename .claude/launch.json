@@ -4,8 +4,20 @@
     {
       "name": "dashboard",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "PYTHONPATH=src exec .venv/bin/python -m legacybridge.cli dashboard --state .legacybridge-demo"],
+      "runtimeArgs": [
+        "-c",
+        "PYTHONPATH=src exec .venv/bin/python -m legacybridge.cli dashboard --state .legacybridge-demo"
+      ],
       "port": 8765
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "PYTHONPATH=src exec .venv/bin/python -m legacybridge.cli web --port 8767 --home .legacybridge-web-dev"
+      ],
+      "port": 8767
     }
   ]
 }

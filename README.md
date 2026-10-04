@@ -93,6 +93,7 @@ limits change.
 | `verify PATH [--hidden]` | Re-run every stored translation against all recorded golden tests. |
 | `report PATH [--out DIR] [--no-scenarios]` | Re-package, replay the scenarios and write the report for the last run. |
 | `dashboard [--port 8765]` | Live view: unit graph by status, per-unit attempts with counterexamples and code, live events, lessons, LLM usage, scenarios. |
+| `web [--port 8766] [--no-specimen]` | The website: the story at `/`, the product at `/app` (sign in with a punch card, or Supabase e-mail/GitHub when configured; feed COBOL by upload, the demo deck or a GitHub repo cloned into the browser; watch the graph, inspect attempts, ship the package). Runs are offline unless the server has keys. |
 | `eval [PATH] [--dry-run]` | Baseline A (single-shot) vs Baseline B (tests + repair) vs the full pipeline, scored on a held-out suite. See [docs/EVAL.md](docs/EVAL.md). |
 
 State lives in `.legacybridge/` (change it with `--state DIR`). The LLM response cache lives in

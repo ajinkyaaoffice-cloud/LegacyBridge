@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=JSON.parse(sessionStorage.getItem("lb.tx"));if(t&&Date.now()-t.t<15000){document.documentElement.className+=" tx-pre";document.documentElement.style.setProperty("--tx-bg",t.color)}}catch(e){}</script>
+<title>The Machine · LegacyBridge</title>
+<meta name="description" content="LegacyBridge migrates COBOL to Python with LLM agents and only accepts code that matches the original program byte for byte.">
+<meta name="theme-color" content="#013330">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'%3E%3Cpath d='M8 0H64V40H0V8Z' fill='%23F4ECD2'/%3E%3Ccircle cx='22' cy='18' r='4' fill='%23013330'/%3E%3Ccircle cx='42' cy='18' r='4' fill='%23013330'/%3E%3Cpath d='M24 28h16' stroke='%23013330' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gasoek+One&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/app.css">
+</head>
+<body data-page="machine" data-nav="light">
+
+<div class="tx" id="tx" aria-hidden="true"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><b class="tx-label"></b></div>
+
+
+<!-- ============================================================ nav -->
+<header class="nav" id="nav">
+  <a class="logo" href="/" data-go="/#top" aria-label="LegacyBridge home"><span class="logo-word">Legacy<br>Bridge</span></a>
+  <nav class="rail" id="rail" aria-label="Site">
+    <a href="/#how" data-go="/#how"><i></i><span>How</span></a>
+    <a href="/#wiring" data-go="/#wiring"><i></i><span>Wiring</span></a>
+    <a href="/#sandbox" data-go="/#sandbox"><i></i><span>Sandbox</span></a>
+    <a href="/#numbers" data-go="/#numbers"><i></i><span>Numbers</span></a>
+    <a href="/app" data-go="/app#feed" class="rail-app is-active"><i></i><span>Machine</span><em aria-hidden="true">↗</em></a>
+  </nav>
+  <div class="nav-right">
+    <button class="kbd-hint" id="paletteHint" type="button" aria-label="Open command palette"><kbd>⌘</kbd><kbd>K</kbd></button>
+    <a class="btn btn-ink nav-cta magnetic" href="/app" data-go="/app#feed" id="navCta">Punch in</a>
+    <button class="id-chip" id="idChip" type="button" hidden aria-haspopup="true">
+      <span class="id-chip-card"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="id-chip-name" id="idChipName"></span>
+    </button>
+    <button class="menu-btn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
+  </div>
+  <div class="id-pop" id="idPop" hidden>
+    <p class="id-pop-head">Punched in as <b id="idPopName"></b></p>
+    <button type="button" data-go="/app#ledger">Your ledger</button>
+    <button type="button" data-go="/app#feed">Feed a new deck</button>
+    <button type="button" data-action="signout" class="danger">Punch out</button>
+  </div>
+</header>
+
+<!-- ============================================================ mega menu -->
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="menu-inner">
+    <div class="menu-feature c-lime">
+      <h3>The machine</h3>
+      <p>Feed a deck, watch the map light up, read every diff.</p>
+      <a class="btn btn-ink btn-sm" href="/app" data-go="/app#feed">Open it</a>
+      <div class="menu-mini-frame"><pre>  PROCEDURE DIVISION.
+      COMPUTE IP-INTEREST
+        ROUNDED = ...
+<em>→ def intcalc(p):</em>
+<em>    p["IP-INTEREST"] =</em>
+<em>      lbrt.store(..., rounded=True)</em></pre></div>
+    </div>
+    <a class="menu-card c-teal" href="/app#feed" data-go="/app#feed"><h4>Feed</h4><p>Upload, the bank demo, or a GitHub repo</p><span class="menu-art art-cards"></span></a>
+    <a class="menu-card c-indigo" href="/app#map" data-go="/app#map"><h4>Map</h4><p>CALL and COPY graph, live</p><span class="menu-art art-graph"></span></a>
+    <a class="menu-card c-sky" href="/app#prove" data-go="/app#prove"><h4>Prove</h4><p>Golden tests, repairs, fuzzing</p><span class="menu-art art-check"></span></a>
+    <a class="menu-card c-peach" href="/app#ship" data-go="/app#ship"><h4>Ship</h4><p>Package, scenarios, report</p><span class="menu-art art-box"></span></a>
+    <div class="menu-links">
+      <h5>The story</h5>
+      <a href="/#how" data-go="/#how">How it works</a>
+      <a href="/#wiring" data-go="/#wiring">How it's wired</a>
+      <a href="/#sandbox" data-go="/#sandbox">Sandbox</a>
+      <a href="/#numbers" data-go="/#numbers">The numbers</a>
+      <h5>Run it yourself</h5>
+      <code>legacybridge web</code>
+      <code>legacybridge migrate examples/bank_demo --dry-run</code>
+    </div>
+  </div>
+</div>
+
+<div class="palette" id="palette" hidden>
+  <div class="palette-box" role="dialog" aria-label="Command palette">
+    <input id="paletteInput" type="text" placeholder="Type a command…" autocomplete="off" spellcheck="false">
+    <ul id="paletteList"></ul>
+    <p class="palette-foot"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>↵</kbd> run · <kbd>esc</kbd> close</p>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<canvas class="keystone" id="keystone" aria-hidden="true"></canvas>
+
+<main class="machine" id="machine">
+
+  <!-- the run everything below is showing -->
+  <div class="runbar" id="runbar">
+    <span class="live-dot" id="liveDot"></span>
+    <div class="runbar-text">
+      <b id="runTitle">Loading…</b>
+      <span id="runMeta" class="mono"></span>
+    </div>
+    <button class="rb-btn" id="replayBtn" type="button" hidden><span>▶</span> Replay</button>
+    <button class="rb-btn" id="runSwitch" type="button">Switch run <kbd>⌘K</kbd></button>
+  </div>
+
+  <!-- five stations, each one a punch card tab -->
+  <nav class="dock" id="dock" aria-label="Machine stations">
+    <a href="#feed" data-go="#feed" data-station="feed" class="c-teal"><em>01</em><span>Feed</span><b></b></a>
+    <a href="#map" data-go="#map" data-station="map" class="c-indigo"><em>02</em><span>Map</span><b></b></a>
+    <a href="#prove" data-go="#prove" data-station="prove" class="c-sky"><em>03</em><span>Prove</span><b></b></a>
+    <a href="#ship" data-go="#ship" data-station="ship" class="c-white"><em>04</em><span>Ship</span><b></b></a>
+    <a href="#ledger" data-go="#ledger" data-station="ledger" class="c-lav"><em>05</em><span>Ledger</span><b></b></a>
+  </nav>
+
+  <!-- ============================================================ FEED -->
+  <section class="station st-feed" id="feed" data-bg="#013330" data-theme="light" hidden>
+    <header class="st-head st-head-row">
+      <div>
+        <span class="eyebrow">01 · Feed</span>
+        <h1 class="display display-md" data-split>Feed the<br>machine</h1>
+      </div>
+      <p class="section-sub" id="feedSub">Your first card is you. Punch it, feed it, and the hopper opens for your COBOL.</p>
+    </header>
+
+    <div class="reader">
+      <p class="reader-label mono" id="readerLabel">READER READY · INSERT CARD</p>
+      <div class="reader-slot"><span class="reader-light"></span></div>
+    </div>
+
+    <!-- signed out: the identity card -->
+    <div class="signin" id="signin">
+      <form class="idcard" id="idCard" autocomplete="on" novalidate>
+        <div class="pcard-id" id="idPunch" aria-hidden="true">
+          <div class="pcard-print mono" id="idPrint">LEGACYBRIDGE · IDENTITY CARD</div>
+          <div class="pcard-grid" id="idGrid"></div>
+        </div>
+        <div class="idcard-fields">
+          <p class="idcard-mode" id="idMode">Punch in or punch a new card. Same card, both ways.</p>
+          <label class="field"><span id="idHandleLabel">Handle</span><input id="idHandle" name="username" maxlength="64" autocomplete="username" spellcheck="false" autocapitalize="off" placeholder="ada.lovelace"></label>
+          <label class="field"><span>Passphrase</span><input id="idPass" name="password" type="password" autocomplete="current-password" placeholder="••••••••"></label>
+          <label class="field" id="idConfirmWrap" hidden><span>Punch it again</span><input id="idConfirm" type="password" autocomplete="new-password" placeholder="••••••••"></label>
+          <p class="field-error" id="idError" role="alert"></p>
+          <button class="btn btn-lime" id="idSubmit" type="submit">Feed card <span aria-hidden="true">→</span></button>
+          <div class="oauth" id="oauthBox" hidden>
+            <span class="or mono">or</span>
+            <button class="btn btn-gh" id="ghLogin" type="button"><svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> Continue with GitHub</button>
+            <small class="mono">Or punch an e-mail as your handle to use a Supabase account.</small>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- signed in: the hopper -->
+    <div class="hopper" id="hopper" hidden>
+      <div class="sources">
+        <div class="src-tabs" role="tablist" id="srcTabs">
+          <button type="button" role="tab" data-src="upload" class="is-on">Upload</button>
+          <button type="button" role="tab" data-src="github">GitHub</button>
+          <button type="button" role="tab" data-src="demo">Bank demo</button>
+          <b class="src-ink" id="srcInk"></b>
+        </div>
+
+        <div class="src-pane is-on" data-pane="upload">
+          <div class="hopper-drop dropzone" id="drop" tabindex="0" role="button" aria-label="Add COBOL files">
+            <div class="drop-art" aria-hidden="true"><span class="pcard"></span><span class="pcard"></span><span class="pcard"></span></div>
+            <p class="drop-title">Drop the deck here</p>
+            <p class="mono drop-sub">.cbl .cob .cpy and &lt;PROGRAM&gt;-name.txt scenarios · 512 KB each</p>
+            <button class="btn btn-light btn-sm" id="pickFiles" type="button">Choose files</button>
+            <input type="file" id="fileInput" multiple accept=".cbl,.cob,.cobol,.cpy,.copy,.txt" hidden>
+          </div>
+        </div>
+
+        <div class="src-pane" data-pane="github">
+          <div class="gh">
+            <div class="gh-who" id="ghWho">
+              <span class="gh-dot"></span><span id="ghWhoText">Not connected. Public repos work without a token.</span>
+              <button type="button" class="rb-btn" id="ghConnect" hidden>Connect GitHub</button>
+              <button type="button" class="rb-btn" id="ghDisconnect" hidden>Forget token</button>
+            </div>
+            <form class="gh-row" id="ghRepoForm">
+              <input id="ghRepo" placeholder="owner/repo or https://github.com/owner/repo" spellcheck="false" autocapitalize="off" aria-label="Repository">
+              <button class="btn btn-lime btn-sm" type="submit" id="ghClone">Clone</button>
+            </form>
+            <details class="gh-pat">
+              <summary class="mono">Use a personal access token</summary>
+              <form class="gh-row" id="ghTokenForm">
+                <input id="ghToken" type="password" placeholder="github_pat_…" autocomplete="off" aria-label="GitHub token">
+                <button class="btn btn-ghost-light btn-sm" type="submit">Use</button>
+              </form>
+              <small class="mono">Kept in this tab only and sent only to api.github.com.</small>
+            </details>
+            <div class="gh-progress" id="ghProgress" hidden><i></i><span class="mono"></span></div>
+            <div class="gh-cols">
+              <div>
+                <h5 class="mono">Cloned in this browser</h5>
+                <ul class="gh-list" id="ghCached" data-lenis-prevent></ul>
+              </div>
+              <div id="ghReposWrap" hidden>
+                <h5 class="mono">Your repos</h5>
+                <ul class="gh-list" id="ghRepos" data-lenis-prevent></ul>
+              </div>
+            </div>
+            <div class="gh-files" id="ghFiles" hidden>
+              <div class="gh-files-head">
+                <b id="ghFilesTitle"></b>
+                <span class="mono" id="ghFilesMeta"></span>
+                <button type="button" class="rb-btn" id="ghAll">All</button>
+                <button type="button" class="rb-btn" id="ghNone">None</button>
+              </div>
+              <ul class="gh-tree" id="ghTree" data-lenis-prevent></ul>
+              <button class="btn btn-lime btn-sm" type="button" id="ghLoad">Load into the deck</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="src-pane" data-pane="demo">
+          <div class="demo-card">
+            <div class="demo-stack" aria-hidden="true"><span class="pcard"></span><span class="pcard"></span><span class="pcard"></span><span class="pcard"></span></div>
+            <h3 class="display-sm">bank_demo</h3>
+            <p>A small batch banking system: 11 programs, 8 copybooks, a CALL cycle, COMP-3 money, and page-broken reports. The offline engine knows it by heart, so it runs without any API key.</p>
+            <button class="btn btn-lime btn-sm" type="button" id="useDemo">Load the bank demo</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="hopper-panel">
+        <p class="hopper-hello">Hi <b id="helloName"></b>. Here's your deck.</p>
+        <div class="tray" id="hopperStack" data-lenis-prevent></div>
+        <p class="deck-summary mono" id="deckSummary">The hopper is empty.</p>
+        <div class="seg" role="radiogroup" aria-label="Engine">
+          <button type="button" class="seg-btn is-on" data-engine="offline" role="radio" aria-checked="true">Offline mock<small>no keys, bank demo only</small></button>
+          <button type="button" class="seg-btn" data-engine="live" role="radio" aria-checked="false" id="liveBtn">Free-tier LLMs<small id="liveNote">add a key to .env</small></button>
+        </div>
+        <label class="switch"><input type="checkbox" id="fuzzToggle" checked><span></span>Adversarial fuzzing<small>K clean rounds after the golden tests pass</small></label>
+        <p class="hopper-warn" id="hopperWarn" hidden></p>
+        <button class="lever" id="runBtn" type="button" disabled><span class="lever-knob"></span><span class="lever-text">Pull to migrate</span></button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============================================================ MAP -->
+  <section class="station st-map" id="map" data-bg="#190066" data-theme="light" hidden>
+    <header class="st-head st-head-row">
+      <div>
+        <span class="eyebrow">02 · Map</span>
+        <h2 class="display display-md" data-split>The live<br>map</h2>
+      </div>
+      <p class="section-sub">Every program is a node, every CALL and COPY an edge. Units move left to right in dependency waves and light up as they're proven.</p>
+    </header>
+    <div class="graph-card">
+      <div class="graph-scroll" data-lenis-prevent><svg class="graph" id="graph" role="img" aria-label="Unit dependency graph"></svg></div>
+      <div class="graph-legend mono">
+        <span data-s="pending">pending</span><span data-s="oracle">oracle</span><span data-s="translating">translate</span>
+        <span data-s="repairing">repair</span><span data-s="fuzzing">fuzz</span><span data-s="verified">verified</span><span data-s="blocked">blocked</span>
+      </div>
+      <div class="ticker mono" id="ticker" aria-live="off"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PROVE -->
+  <section class="station st-prove" id="prove" data-bg="#CEE9FD" data-theme="dark" hidden>
+    <header class="st-head st-head-row">
+      <div>
+        <span class="eyebrow">03 · Prove</span>
+        <h2 class="display display-md" data-split>Read<br>every diff</h2>
+      </div>
+      <p class="section-sub">Pick a unit. The original, the accepted Python, and every attempt the verifier turned down, with the first byte that differed.</p>
+    </header>
+    <div class="prove-grid">
+      <div class="insp">
+        <div class="insp-head">
+          <div class="insp-title"><span class="pill" id="inspStatus">–</span><b id="inspName">–</b></div>
+          <div class="code-toggle" role="tablist">
+            <button type="button" data-view="cobol" class="is-on">COBOL</button>
+            <button type="button" data-view="python">Python</button>
+            <button type="button" data-view="attempts">Attempts</button>
+            <b class="toggle-ink" id="toggleInk"></b>
+          </div>
+        </div>
+        <div class="unit-tabs" id="unitTabs"></div>
+        <div class="insp-body">
+          <div class="insp-pane is-on" data-pane="cobol" data-lenis-prevent><pre class="code gutter" id="paneCobol"></pre></div>
+          <div class="insp-pane" data-pane="python" data-lenis-prevent><pre class="code gutter" id="panePython"></pre></div>
+          <div class="insp-pane attempts" data-pane="attempts" data-lenis-prevent></div>
+        </div>
+      </div>
+      <div class="stats">
+        <article class="bento c-indigo stat"><h3><b data-stat="tests">0</b></h3><p>golden tests from GnuCOBOL</p><small class="mono" data-stat="tests_note"></small></article>
+        <article class="bento c-teal stat"><h3><b data-stat="attempts">0</b></h3><p>translate + repair attempts</p><small class="mono" data-stat="attempts_note"></small></article>
+        <article class="bento c-peach stat"><h3><b data-stat="fuzz">0</b></h3><p>bugs the fuzzer found</p><small class="mono" data-stat="fuzz_note"></small></article>
+        <article class="bento c-lav stat"><h3><b data-stat="lessons">0</b></h3><p>lessons learned</p><small class="mono" data-stat="lessons_note"></small></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ SHIP -->
+  <section class="station st-ship" id="ship" data-bg="#FFFFFF" data-theme="dark" hidden>
+    <header class="st-head st-head-row">
+      <div>
+        <span class="eyebrow">04 · Ship</span>
+        <h2 class="display display-md" data-split>Ship<br>it</h2>
+      </div>
+      <p class="section-sub">A runnable Python package, the end-to-end scenarios replayed against GnuCOBOL, and a report you can hand to an auditor.</p>
+    </header>
+    <div class="ship-grid">
+      <article class="verdict c-green" id="verdict">
+        <span class="stamp" id="verdictStamp">–</span>
+        <div class="verdict-num"><b data-stat="verified">0/0</b><span>units verified</span></div>
+        <div class="verdict-num"><b id="scenNum">0/0</b><span>scenarios identical</span></div>
+        <div class="verdict-actions">
+          <a class="btn btn-ink" id="downloadBtn" href="#" aria-disabled="true" download>Download package</a>
+          <button class="btn btn-ghost-light" id="reportBtn" type="button" disabled>Read the report</button>
+        </div>
+      </article>
+      <article class="scen-card">
+        <h4 class="mono">End-to-end scenarios</h4>
+        <div class="scenarios" id="scenarios"></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============================================================ LEDGER -->
+  <section class="station st-ledger" id="ledger" data-bg="#EAC2FF" data-theme="dark" hidden>
+    <header class="st-head st-head-row">
+      <div>
+        <span class="eyebrow">05 · Ledger</span>
+        <h2 class="display display-md" data-split>Your<br>ledger</h2>
+      </div>
+      <p class="section-sub" id="ledgerSub">Every deck you've fed, newest first. Click a card to load it into the machine.</p>
+    </header>
+    <div class="deck" id="deck" data-lenis-prevent></div>
+  </section>
+</main>
+
+<div class="modal" id="reportModal" hidden>
+  <div class="modal-box" role="dialog" aria-label="Migration report">
+    <button class="modal-close" type="button" aria-label="Close">×</button>
+    <pre class="report" id="reportText" data-lenis-prevent></pre>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script type="module" src="/assets/js/app.js"></script>
+</body>
+</html>

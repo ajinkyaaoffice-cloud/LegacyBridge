@@ -81,8 +81,8 @@ class CobolPythonAdapter(LanguageAdapter):
 
     def _files(self, exts: set[str]) -> list[Path]:
         skip = {".legacybridge", "reference_py", "scenarios", ".git"}
-        return sorted(p for p in self.root.rglob("*")
-                      if p.is_file() and p.suffix.lower() in exts and not skip & set(p.parts))
+        return sorted(p for p in self.root.rglob("*")   # skip dirs *inside* root, not above it
+                      if p.is_file() and p.suffix.lower() in exts and not skip & set(p.relative_to(self.root).parts))
 
     def discover(self) -> list[SourceModule]:
         """Parse every program and copybook under root."""

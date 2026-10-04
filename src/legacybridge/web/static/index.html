@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>try{var t=JSON.parse(sessionStorage.getItem("lb.tx"));if(t&&Date.now()-t.t<15000){document.documentElement.className+=" tx-pre";document.documentElement.style.setProperty("--tx-bg",t.color)}}catch(e){}</script>
+<title>LegacyBridge</title>
+<meta name="description" content="LegacyBridge migrates COBOL to Python with LLM agents and only accepts code that matches the original program byte for byte.">
+<meta name="theme-color" content="#E5FFC3">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'%3E%3Cpath d='M8 0H64V40H0V8Z' fill='%23F4ECD2'/%3E%3Ccircle cx='22' cy='18' r='4' fill='%23013330'/%3E%3Ccircle cx='42' cy='18' r='4' fill='%23013330'/%3E%3Cpath d='M24 28h16' stroke='%23013330' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gasoek+One&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/story.css">
+</head>
+<body class="is-loading" data-page="story" data-nav="light">
+
+<div class="tx" id="tx" aria-hidden="true"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><b class="tx-label"></b></div>
+
+<!-- ============================================================ loader -->
+<div class="loader" id="loader" aria-hidden="true">
+  <div class="loader-logo">
+    <span class="logo-word" data-pixel-intro>Legacy<br>Bridge</span>
+    <span class="loader-tape"><i></i></span>
+  </div>
+</div>
+
+<!-- ============================================================ nav -->
+<header class="nav" id="nav">
+  <a class="logo" href="/" data-go="/#top" aria-label="LegacyBridge home"><span class="logo-word">Legacy<br>Bridge</span></a>
+  <nav class="rail" id="rail" aria-label="Site">
+    <a href="/#how" data-go="/#how"><i></i><span>How</span></a>
+    <a href="/#wiring" data-go="/#wiring"><i></i><span>Wiring</span></a>
+    <a href="/#sandbox" data-go="/#sandbox"><i></i><span>Sandbox</span></a>
+    <a href="/#numbers" data-go="/#numbers"><i></i><span>Numbers</span></a>
+    <a href="/app" data-go="/app#feed" class="rail-app"><i></i><span>Machine</span><em aria-hidden="true">↗</em></a>
+  </nav>
+  <div class="nav-right">
+    <button class="kbd-hint" id="paletteHint" type="button" aria-label="Open command palette"><kbd>⌘</kbd><kbd>K</kbd></button>
+    <a class="btn btn-ink nav-cta magnetic" href="/app" data-go="/app#feed" id="navCta">Try the machine</a>
+    <button class="id-chip" id="idChip" type="button" hidden aria-haspopup="true">
+      <span class="id-chip-card"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="id-chip-name" id="idChipName"></span>
+    </button>
+    <button class="menu-btn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
+  </div>
+  <div class="id-pop" id="idPop" hidden>
+    <p class="id-pop-head">Punched in as <b id="idPopName"></b></p>
+    <button type="button" data-go="/app#ledger">Your ledger</button>
+    <button type="button" data-go="/app#feed">Feed a new deck</button>
+    <button type="button" data-action="signout" class="danger">Punch out</button>
+  </div>
+</header>
+
+<!-- ============================================================ mega menu -->
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="menu-inner">
+    <div class="menu-feature c-lime">
+      <h3>The machine</h3>
+      <p>Feed a deck, watch the map light up, read every diff.</p>
+      <a class="btn btn-ink btn-sm" href="/app" data-go="/app#feed">Open it</a>
+      <div class="menu-mini-frame"><pre>  PROCEDURE DIVISION.
+      COMPUTE IP-INTEREST
+        ROUNDED = ...
+<em>→ def intcalc(p):</em>
+<em>    p["IP-INTEREST"] =</em>
+<em>      lbrt.store(..., rounded=True)</em></pre></div>
+    </div>
+    <a class="menu-card c-teal" href="/app#feed" data-go="/app#feed"><h4>Feed</h4><p>Upload, the bank demo, or a GitHub repo</p><span class="menu-art art-cards"></span></a>
+    <a class="menu-card c-indigo" href="/app#map" data-go="/app#map"><h4>Map</h4><p>CALL and COPY graph, live</p><span class="menu-art art-graph"></span></a>
+    <a class="menu-card c-sky" href="/app#prove" data-go="/app#prove"><h4>Prove</h4><p>Golden tests, repairs, fuzzing</p><span class="menu-art art-check"></span></a>
+    <a class="menu-card c-peach" href="/app#ship" data-go="/app#ship"><h4>Ship</h4><p>Package, scenarios, report</p><span class="menu-art art-box"></span></a>
+    <div class="menu-links">
+      <h5>The story</h5>
+      <a href="/#how" data-go="/#how">How it works</a>
+      <a href="/#wiring" data-go="/#wiring">How it's wired</a>
+      <a href="/#sandbox" data-go="/#sandbox">Sandbox</a>
+      <a href="/#numbers" data-go="/#numbers">The numbers</a>
+      <h5>Run it yourself</h5>
+      <code>legacybridge web</code>
+      <code>legacybridge migrate examples/bank_demo --dry-run</code>
+    </div>
+  </div>
+</div>
+
+<div class="palette" id="palette" hidden>
+  <div class="palette-box" role="dialog" aria-label="Command palette">
+    <input id="paletteInput" type="text" placeholder="Type a command…" autocomplete="off" spellcheck="false">
+    <ul id="paletteList"></ul>
+    <p class="palette-foot"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>↵</kbd> run · <kbd>esc</kbd> close</p>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<canvas class="keystone" id="keystone" aria-hidden="true"></canvas>
+
+<main id="top">
+
+<!-- ============================================================ 1. HERO -->
+<section class="hero" id="hero" data-bg="#E5FFC3" data-theme="dark">
+  <div class="hero-stage" id="heroStage">
+    <div class="hero-panel" id="heroPanel" aria-hidden="true"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i></div>
+
+    <div class="hero-copy">
+      <h1 class="display hero-title" data-pixel data-pixel-color="#CEE9FD">Proof,<br>not<br>promises</h1>
+      <p class="hero-sub">COBOL in, Python out. Every module is run against the original program and accepted only when the bytes match.</p>
+      <div class="hero-actions">
+        <a class="btn btn-light magnetic" href="/app" data-go="/app#feed">Feed your deck</a>
+        <a class="btn btn-ghost-light" href="/#wiring" data-go="/#wiring">See how it's wired</a>
+      </div>
+    </div>
+
+    <div class="laptop" id="laptop" aria-hidden="true">
+      <div class="lid" id="lid">
+        <div class="screen" id="screen">
+          <div class="win-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <div class="win-tabs" id="winTabs">
+              <span class="win-tab is-on" data-tab="cobol">INTCALC.cbl</span>
+              <span class="win-tab" data-tab="python">intcalc.py</span>
+              <b class="win-ink" id="winInk"></b>
+            </div>
+            <span class="win-tag" id="winTag">GnuCOBOL</span>
+          </div>
+          <div class="win-body" id="winBody">
+            <div class="pane pane-cobol" id="heroCobolPane"><pre class="code gutter" id="heroCobol"></pre></div>
+            <div class="pane pane-python" id="heroPyPane"><pre class="code gutter" id="heroPython"></pre></div>
+            <canvas class="pix-wipe" id="pixWipe"></canvas>
+            <span class="stamp screen-stamp" id="screenStamp">54 / 54 identical</span>
+          </div>
+          <div class="win-status mono"><span><i></i>sandboxed</span><span id="winStatus">cobc -x · compiled</span><span>UTF-8 · LF</span></div>
+        </div>
+      </div>
+      <div class="base"><i class="notch"></i></div>
+    </div>
+
+    <h2 class="display chapter-title" id="heroChapter" data-pixel-color="#E5FFC3">Diff<br>everything</h2>
+
+    <div class="hero-bentos" id="heroBentos">
+      <article class="bento c-lime">
+        <h3>Every <em>CALL</em> and <em>COPY</em> mapped into migration waves</h3>
+        <div class="art art-waves"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </article>
+      <article class="bento c-sky">
+        <h3>The original program writes the answer key</h3>
+        <div class="art art-card3d"><span class="pcard pcard-mini"></span><span class="pcard pcard-mini"></span></div>
+      </article>
+      <article class="bento c-peri">
+        <h3>Failures go back as diffs. Models escalate.</h3>
+        <div class="art art-diff"><span>- 0000123.45</span><span>+ 0000123.44</span></div>
+      </article>
+      <article class="bento c-peach">
+        <h3>An adversary hunts the inputs your tests missed</h3>
+        <div class="art art-dice"><i></i><i></i></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 2. HOW -->
+<section class="how" id="how" data-bg="#E5FFC3" data-theme="dark">
+  <div class="marquee" aria-hidden="true">
+    <div class="mq-row" data-speed="1"><div class="mq-track">
+      <span>analyze</span><b>✦</b><span>oracle</span><b>✦</b><span>translate</span><b>✦</b><span>verify</span><b>✦</b><span>repair</span><b>✦</b><span>fuzz</span><b>✦</b><span>verified</span><b>✦</b>
+    </div></div>
+    <div class="mq-row mq-outline" data-speed="-0.7"><div class="mq-track">
+      <span>byte for byte</span><b>●</b><span>no exec</span><b>●</b><span>golden tests</span><b>●</b><span>free models</span><b>●</b><span>cobc</span><b>●</b><span>python 3</span><b>●</b>
+    </div></div>
+  </div>
+  <div class="how-grid">
+    <p class="how-lede reveal">LLMs write the code. <strong>They never decide whether it's right.</strong> That verdict is an exact comparison against the program you already trust.</p>
+    <ol class="how-steps">
+      <li class="reveal"><b>01</b><h4>Compile the original</h4><p>GnuCOBOL builds your real programs. Subprograms get a generated driver so every CALL is testable.</p></li>
+      <li class="reveal"><b>02</b><h4>Record golden tests</h4><p>LLM, boundary and random inputs run through the original. Its stdout and exit code are the answer key.</p></li>
+      <li class="reveal"><b>03</b><h4>Translate, verify, repair</h4><p>A failing test goes back to the model as a structured diff. After repeated misses it escalates to a stronger model.</p></li>
+      <li class="reveal"><b>04</b><h4>Fuzz until clean</h4><p>An adversary reads the new code and aims inputs at it. A unit ships only after K clean rounds.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================================ 3. WIRING (architecture) -->
+<section class="wiring" id="wiring" data-bg="#190066" data-theme="light">
+  <div class="section-head center">
+    <span class="eyebrow">The wiring</span>
+    <h2 class="display" data-pixel data-pixel-color="#CEE9FD">Wired<br>for proof</h2>
+    <p class="section-sub">Agents never call each other. They read and write one blackboard, and every change is an event you can replay.</p>
+  </div>
+  <div class="arch" id="arch">
+    <svg class="arch-wires" id="archWires" aria-hidden="true"></svg>
+    <div class="arch-grid" id="archGrid">
+      <div class="arch-node c-lime" data-k="deck" data-cursor="deck"><b>01</b><h4>Your deck</h4><p>Programs, copybooks, scenario files</p><span class="tag">.cbl .cpy .txt</span></div>
+      <div class="arch-node c-sky" data-k="analyze" data-cursor="parse"><b>02</b><h4>Analyze</h4><p>Parse divisions, CALL and COPY</p><span class="tag">parser</span></div>
+      <div class="arch-node c-lav" data-k="graph" data-cursor="waves"><b>03</b><h4>Waves</h4><p>Cycles collapse into units, callees go first</p><span class="tag">SCC graph</span></div>
+      <div class="arch-node c-peri" data-k="sched" data-cursor="queue"><b>04</b><h4>Scheduler</h4><p>Async queue, resumes from SQLite</p><span class="tag">asyncio</span></div>
+      <div class="arch-node c-peach" data-k="oracle" data-cursor="oracle"><b>05</b><h4>Oracle</h4><p>Runs the original on generated inputs</p><span class="tag">GnuCOBOL</span></div>
+      <div class="arch-node c-teal" data-k="translate" data-cursor="llm"><b>06</b><h4>Translate</h4><p>Free-tier model writes Python</p><span class="tag">LLM</span></div>
+      <div class="arch-node c-green is-key" data-k="verify" data-cursor="diff"><b>07</b><h4>Verify</h4><p>Exact diff against the golden output. No model involved.</p><span class="tag">deterministic</span></div>
+      <div class="arch-node c-peach" data-k="repair" data-cursor="repair"><b>08</b><h4>Repair</h4><p>The diff goes back; models escalate</p><span class="tag">loop</span></div>
+      <div class="arch-node c-lav" data-k="fuzz" data-cursor="fuzz"><b>09</b><h4>Fuzz</h4><p>K clean adversarial rounds</p><span class="tag">adversary</span></div>
+      <div class="arch-node c-sky" data-k="integrate" data-cursor="ship"><b>10</b><h4>Integrate</h4><p>Package + end-to-end scenario diff</p><span class="tag">python -m</span></div>
+      <div class="arch-node c-lime" data-k="ship" data-cursor="zip"><b>11</b><h4>Ship</h4><p>Runnable package and REPORT.md</p><span class="tag">VERIFIED</span></div>
+      <div class="arch-board" data-k="board"><span class="mono">blackboard · state.db</span><div class="board-rows" id="boardRows"></div></div>
+    </div>
+    <span class="arch-token pcard" id="archToken" aria-hidden="true"></span>
+  </div>
+</section>
+
+<!-- ============================================================ 4. SANDBOX -->
+<section class="sandbox" id="sandbox" data-bg="#FFA680" data-theme="dark">
+  <div class="sandbox-wrap">
+    <div class="sandbox-copy">
+      <span class="eyebrow">Sandbox</span>
+      <h2 class="display sandbox-title" data-pixel data-pixel-color="#661800">Sandboxed<br>by default</h2>
+      <ul class="guarantees">
+        <li class="reveal"><i>01</i><div><h4>Never <code>exec</code>, never <code>import</code></h4><p>Legacy and generated code only run in a child process. Nothing runs in the server.</p></div></li>
+        <li class="reveal"><i>02</i><div><h4>Timeouts and rlimits</h4><p>CPU time, file size and core dumps are capped. The environment is scrubbed, output truncated.</p></div></li>
+        <li class="reveal"><i>03</i><div><h4>No network</h4><p>On macOS, <code>sandbox-exec</code> denies every socket. Code under test can't phone home.</p></div></li>
+        <li class="reveal"><i>04</i><div><h4>Free models, your keys</h4><p>Gemini, Groq, OpenRouter <code>:free</code>, Mistral. Keys stay in <code>.env</code>, never logged.</p></div></li>
+      </ul>
+    </div>
+    <div class="vault" id="vault" aria-hidden="true">
+      <div class="ring r1"><span class="ring-tag">seatbelt · (deny network*)</span></div>
+      <div class="ring r2"><span class="ring-tag">rlimits · cpu · fsize · core</span></div>
+      <div class="ring r3"><span class="ring-tag">subprocess · timeout · clean env</span></div>
+      <div class="core">
+        <div class="core-bar"><i></i><i></i><i></i><span>child · pid 4127</span></div>
+        <pre class="core-term" id="coreTerm"></pre>
+      </div>
+      <div class="probes" id="probes"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 5. NUMBERS -->
+<section class="numbers" id="numbers" data-bg="#FFFFFF" data-theme="dark">
+  <div class="section-head">
+    <span class="eyebrow">The numbers</span>
+    <h2 class="display" data-pixel data-pixel-color="#013330">Measured,<br>not claimed</h2>
+  </div>
+  <div class="num-grid">
+    <article class="block c-peri">
+      <h3><span class="count" data-count="11">11</span>/11</h3>
+      <p>modules correct on 660 held-out tests the pipeline never saw</p>
+      <div class="bars" aria-label="Modules correct by configuration">
+        <div class="bar"><span>single-shot</span><i style="--v:.545"></i><b>6/11</b></div>
+        <div class="bar"><span>tests + repair</span><i style="--v:.909"></i><b>10/11</b></div>
+        <div class="bar is-hi"><span>full pipeline</span><i style="--v:1"></i><b>11/11</b></div>
+      </div>
+    </article>
+    <article class="block c-lime">
+      <h3><span class="count" data-count="0">0</span></h3>
+      <p>modules marked verified that were actually wrong. Tests + repair alone let one through.</p>
+      <div class="stamp-row"><span class="stamp ok">IDENTICAL</span><span class="stamp ok">IDENTICAL</span><span class="stamp ok">IDENTICAL</span><span class="stamp ok">IDENTICAL</span></div>
+    </article>
+    <article class="block c-lav">
+      <h3><span class="count" data-count="4">4</span>/4</h3>
+      <p>end-to-end scenario files produce identical output from the Python package</p>
+      <pre class="mini-term mono">$ python -m bank_demo_py STMTRPT \
+    &lt; june_statements.txt
+<em>✓ identical to GnuCOBOL</em></pre>
+    </article>
+    <article class="block c-teal">
+      <h3><span class="count" data-count="10">10</span>s</h3>
+      <p>for the offline mock to take the whole bank demo from deck to verified package</p>
+      <a class="btn btn-lime btn-sm" href="/app" data-go="/app#feed">Try it</a>
+    </article>
+  </div>
+</section>
+
+<!-- ============================================================ 6. CTA -->
+<section class="cta" id="cta" data-bg="#FFFFFF" data-theme="dark">
+  <div class="cta-card c-indigo" id="ctaCard">
+    <span class="pcard cta-pcard" aria-hidden="true"></span>
+    <span class="pcard cta-pcard two" aria-hidden="true"></span>
+    <div class="cta-body">
+      <h2 class="display" data-pixel data-pixel-color="#CEE9FD">Jump off<br>the<br>mainframe</h2>
+      <a class="btn btn-light magnetic" href="/app" data-go="/app#feed" data-cursor="open">Open the machine</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer" data-bg="#FFFFFF" data-theme="dark">
+  <div class="footer-top">
+    <span class="logo-word logo-word-xl">Legacy<br>Bridge</span>
+    <div class="footer-cols">
+      <div><h5>Story</h5><a href="/#how" data-go="/#how">How it works</a><a href="/#wiring" data-go="/#wiring">Wiring</a><a href="/#sandbox" data-go="/#sandbox">Sandbox</a><a href="/#numbers" data-go="/#numbers">Numbers</a></div>
+      <div><h5>Machine</h5><a href="/app#feed" data-go="/app#feed">Feed</a><a href="/app#map" data-go="/app#map">Map</a><a href="/app#prove" data-go="/app#prove">Prove</a><a href="/app#ship" data-go="/app#ship">Ship</a></div>
+      <div><h5>Run it</h5><code>legacybridge web</code><code>legacybridge dashboard</code><code>legacybridge eval --dry-run</code></div>
+    </div>
+  </div>
+  <div class="footer-bottom mono"><span>The LLM never decides a verdict.</span><span id="footerEngine"></span></div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script type="module" src="/assets/js/story.js"></script>
+</body>
+</html>

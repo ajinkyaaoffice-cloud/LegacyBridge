@@ -189,3 +189,31 @@ Decisions made autonomously while building LegacyBridge. Each has a short ration
 - **Dry-run numbers are mechanism checks.** They show that the gate, repair, escalation, fuzzing
   and lessons catch the mock's catalogued bugs. They say nothing about model quality, and every
   results file states this.
+
+## Website (`legacybridge web`)
+
+- **Two pages, one server.** `/` tells the story, `/app` is the product. Both use the same API
+  and the same punch-card shutter for every navigation, including between pages (a short
+  sessionStorage handoff tells the next page to start covered).
+- **Runs are child processes.** The web server never runs pipeline code in its own process. Each
+  run is a `legacybridge migrate` subprocess in its own directory, and that process still runs
+  COBOL and Python only through the sandbox. Runs are dry-run (MockProvider) unless the server
+  has provider keys and the user asks for a live run.
+- **Uploads**: names are stripped to the basename, only COBOL extensions are accepted, the content
+  must be UTF-8, and duplicate names (case-insensitive) are refused. Reports have server paths
+  removed before they are served.
+- **Supabase is optional.** With `SUPABASE_URL` and `SUPABASE_ANON_KEY`, the browser signs in with
+  Supabase (e-mail or GitHub). The server checks the access token against Supabase Auth (`httpx`,
+  new dependency) and links it to a local account (handle from the GitHub login or the e-mail
+  local part, made unique). Local accounts stay the source of truth. Linked accounts get a random
+  passphrase hash, so they can only sign in through Supabase. The service-role key (server only)
+  enables a best-effort background mirror of profiles and run summaries. A Supabase outage never
+  blocks a run. The schema with RLS is in `supabase/schema.sql`.
+- **The GitHub token never reaches our server.** It comes from the Supabase GitHub sign-in
+  (`provider_token`) or from a pasted fine-grained token. It is kept in sessionStorage and sent
+  only to api.github.com. Cloned files (COBOL and copybook extensions, at most 512 KB each and a
+  capped number of files) are cached in IndexedDB with the commit sha. "Sync" re-clones only when
+  the branch head moved. Picked files go to the server as an ordinary upload.
+- **Hidden tabs.** Browsers pause requestAnimationFrame in background tabs, so a GSAP tween can
+  stall. Every awaited animation is raced against a timeout, and a watchdog always unlocks the
+  page. A reload in a background tab can therefore never leave the page covered or unclickable.

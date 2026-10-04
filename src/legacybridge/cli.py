@@ -324,6 +324,24 @@ def dashboard(
     uvicorn.run(create_app(db_path), host=host, port=port, log_level="warning")
 
 
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address (keep it local unless you front it with TLS)."),
+    port: int = typer.Option(8766, "--port"),
+    home: Path = typer.Option(Path(".legacybridge-web"), "--home", help="Accounts (web.db) and runs live here."),
+    specimen: bool = typer.Option(True, "--specimen/--no-specimen",
+                                  help="Run the public demo migration (offline) at startup if it is missing."),
+) -> None:
+    """The LegacyBridge website at http://HOST:PORT: the story at /, the product (the machine) at /app."""
+    import uvicorn
+
+    from .web.app import create_web_app
+
+    settings = _settings(True)
+    console.print(f"LegacyBridge web on [bold]http://{host}:{port}[/]  (home: {home}; Ctrl-C to stop)")
+    uvicorn.run(create_web_app(home, settings, start_specimen=specimen), host=host, port=port, log_level="warning")
+
+
 @app.command("eval")
 def eval_cmd(
     path: Path = typer.Argument(Path("examples/bank_demo"), exists=True, file_okay=False, help="Corpus."),
