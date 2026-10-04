@@ -17,8 +17,10 @@ python3.13 -m venv .venv && .venv/bin/pip install -e '.[dev]'   # setup
 .venv/bin/legacybridge eval --dry-run
 ```
 
-macOS quirk: files inside `.venv` here get the `hidden` flag (iCloud Desktop), so Python 3.13 skips
-the editable `.pth`. pytest sets `pythonpath`; for ad-hoc scripts use `PYTHONPATH=src`.
+macOS quirk: iCloud (Desktop) sets the `hidden` flag on synced files and Python 3.13 skips hidden
+`.pth` files, which breaks the editable install. The venv therefore lives in `.venv.nosync/`
+(iCloud skips `*.nosync`) with a `.venv` symlink to it. If it breaks again:
+`chflags -R nohidden .venv.nosync`.
 
 GnuCOBOL: `brew install gnucobol` (macOS) / `apt-get install gnucobol` (Debian/Ubuntu).
 
